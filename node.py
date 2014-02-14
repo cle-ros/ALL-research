@@ -12,21 +12,20 @@ class Node(object):
     """
     properties = {}
     
-    def __init__(self,denominator,var):
+    def __init__(self, denominator, var):
         """        
         all required information are the name of the node
         """
         self.name = denominator
         self.child_nodes = {}
         self.parent_nodes = []
-        self.node_type = Node
         self.variable = var
 
     def set_child(self,child,number):
         """        
         setting a node as a child node, where number denotes an internal reference
         """
-        if isinstance(child,self.node_type):
+        if isinstance(child, Node):
             self.child_nodes[number] = child
         else:
             raise Exception('Trying to add a non-node object as child node')
@@ -35,7 +34,7 @@ class Node(object):
         """
         setting a parent
         """
-        if isinstance(parent,self.node_type):
+        if isinstance(parent, Node):
             self.parent_nodes.append(parent)
         else:
             raise Exception('Trying to add a non-node object as parent node')
@@ -44,7 +43,7 @@ class Node(object):
         """
         This function checks whether a node already is a child of the given node
         """
-        if isinstance(node,self.node_type):
+        if isinstance(node, Node):
             if node in self.child_nodes.values():
                 return True
             else:
@@ -56,7 +55,7 @@ class Node(object):
         """
         This function checks whether a node already is a parent of the given node
         """
-        if isinstance(node,self.node_type):
+        if isinstance(node, Node):
             if node in self.parent_nodes:
                 return True
             else:
@@ -76,23 +75,22 @@ class BNode(Node):
                         child, n if the node is the negative child
         """
 #        super(BNode, self).__init__(denominator,variable)
-        self.node_type = BNode
         Node.__init__(self,denominator,variable)
         if not parents == {}:
             self.add_parent(parents)
 
-    def add_parent(self,parents):
+    def add_parent(self, **parents):
         """
         A function overwriting the add_parent method of Node, and extending
         it to include special operations for binary diagrams
         """
-        # creating a positive edge from the parent 
+        # creating a positive edge from the parent
         if 'p' in parents:
-            Node.add_parent(self,parents['p'])
+            Node.add_parent(self, parents['p'])
             parents['p'].p = self
         elif 'n' in parents:
             # creating a negative edge from the parent 
-            Node.add_parent(self,parents['n'])
+            Node.add_parent(self, parents['n'])
             parents['n'].n = self
         else:
             raise Exception('unknown parent type for a binary node')
@@ -109,21 +107,36 @@ class BNode(Node):
         return self.child_nodes[0]
     @n.setter
     def n(self,child):
-        Node.set_child(self,child,0)
+        Node.set_child(self, child, 0)
 
 class Leaf(Node):
     """
     This special node-type is reserved for modeling the leaves of the diagram
     """
-    def __init__(self,denominator, val):
-        Node.__init__(denominator)
+    def __init__(self, denominator, val):
+        Node.__init__(self,denominator,'Value')
         self.child_nodes = None
         self.value = val
     def set_child(self):
         raise Exception('[ERROR] Trying to add a child to a leaf node.')
         return None
 
-a=BNode('hallo','x1')
-b=BNode('hallo1','x2',p=a)
-c=BNode('hallo1','x2',p=b)
-d=BNode('hallo1','x2',n=b)
+class BLeaf(Leaf):
+    """
+    A special class for leaves in binary diagrams
+    """
+    def add_parent(self, **parents):
+        """
+        A function overwriting the add_parent method of Node, and extending
+        it to include special operations for binary diagrams
+        """
+        # creating a positive edge from the parent
+        if 'p' in parents:
+            Node.add_parent(self, parents['p'])
+            parents['p'].p = self
+        elif 'n' in parents:
+            # creating a negative edge from the parent
+            Node.add_parent(self, parents['n'])
+            parents['n'].n = self
+        else:
+            raise Exception('unknown parent type for a binary node')
