@@ -9,7 +9,7 @@ from node import *
 from diagram_initialization import *
 
 class Diagram(object):
-    def __init__(self, ntype, ltype, mat, nv):
+    def __init__(self, ntype, ltype, nv, mat = None):
         """
         Initializing the Object.
         :param ntype:   type of the nodes (i.e. BNode for binary)
@@ -23,21 +23,24 @@ class Diagram(object):
         self.leaves = {}
         self.matrix = np.array(mat)
         self.null_value = nv
-        self.shape = mat.shape
-        self.root = self.initialize()
+        if not mat is None:
+            self.shape = mat.shape
+        self.root = self.initialize(mat)
 
-        
-    def initialize(self):
+    def initialize(self, mat):
         """
         This function initializes the graph, i.e. creates the diagram from
         the given matrix
         :type self: object
         """
-        root = initialize_diagram(self, self.matrix, self.null_value)
-        self.set_root(root)
-        return root
+        if mat is None:
+            return None
+        else:
+            root = initialize_diagram(self, np.array(mat), self.null_value)
+            self.set_root(root)
+            return root
 
-    def add_node(self, denominator, parent=None):
+    def add_node(self, denominator, variable, **parents):
         """
         This method adds a node to the given diagram, and should only be called
         through the different Diagram-class extensions (like BDiagram)
@@ -47,13 +50,13 @@ class Diagram(object):
         """
         # checking whether node already exists in the diagram
         if denominator in self.nodes:
-            raise Exception('Leaf already present in Diagram')
+            raise Exception('Node already present in Diagram')
         else:
             # creating the node object
-            new_node = self.node_type(denominator,parent)
+            new_node = self.node_type(denominator, variable)
             # adding the node to the list of nodes in the diagram
             self.nodes[denominator] = new_node
-            return  new_node
+            return new_node
     
     def set_root(self, ref):
         """
@@ -75,14 +78,14 @@ class Diagram(object):
         :param parent:
         :return: :raise Exception:
         """
-        if denominator in self.nodes:
-            raise Exception('Leaf already present in Diagram')
+        if denominator in self.leaves:
+            return self.leaves[denominator]
         else:
             # creating the node object
             new_node = self.leaf_type(denominator, value)
             # adding the node to the list of nodes in the diagram
             self.leaves[denominator] = new_node
-            return  new_node
+            return new_node
     
     def add_edge(self, node1, node2):
         """
@@ -94,13 +97,18 @@ class Diagram(object):
         node1.add_child(node2)
         return
 
+    def remove_edge(self, node1, node2):
+        node2.remove_parent(node1)
+        node1.remove_child(node2)
+        return
+
     def has_leaf(self, ref):
         """
         This method checks whether a leave denoted by a given denominator 
         already exists in the diagram
         :param ref:
         """
-        if isinstance(ref,np.string_) or isinstance(ref,str):
+        if isinstance(ref, np.string_) or isinstance(ref, str):
             if ref in self.leaves:
                 return True
             else:
@@ -151,6 +159,51 @@ class Diagram(object):
         else:
             return False
 
+    def remove_edge(self, node1, node2):
+        """
+        This function removes an existing edge between two nodes.
+        """
+        node1.remove_child(node2)
+        node2.remove_parent(node1)
+        return
+
+    def remove_leaf(self, leaf):
+        """
+        This method removes a leave from the diagram. Preferably called via remove_entry(node), and not directly.
+        """
+        for count, (key, value) in enumerate(self.leaves.iteritems()):
+            if value == leaf:
+                self.leaves.pop(key)
+                return
+        raise Warning('No leaf '+leaf.name+' present in the leaves of '+self.name)
+        return
+
+    def remove_node(self, node):
+        """
+        This method removes a node from the diagram. Preferably called via remove_entry(node), and not directly.
+        """
+        for count, (key, value) in enumerate(self.nodes.iteritems()):
+            if value == node:
+                self.leaves.pop(key)
+                return
+        raise Warning('No node '+node.name+' present in the nodes of '+self.name)
+        return
+
+    def remove_entry(self, node):
+        """
+        This method removes any entry (i.e. node or leaf) from the diagram.
+        """
+        #
+        if node in self.leaves.values():
+            self.remove_leaf(node)
+            return
+        elif node in self.nodes.values():
+            self.remove_node(node)
+            return
+        else:
+            raise Warning('No entry '+node.name+' present in the entries of '+self.name)
+            return
+
 
 class BDiagram(Diagram):
     def add_edge(self, node1, node2, bin_type):
@@ -160,9 +213,9 @@ class BDiagram(Diagram):
         :param node2:
         """
         if bin_type == 'p':
-            node2.add_parent(p=node1)
+            node2.add_parent({'p':node1})
         elif bin_type == 'n':
-            node2.add_parent(n=node1)
+            node2.add_parent({'n':node1})
         else:
             raise Exception('Unknown edge/child type for a binary diagram.')
         return
@@ -186,10 +239,3 @@ class BDiagram(Diagram):
         self.add_edge(node1, node2, 'n')
 
 
-mat = np.random.random_integers(0,5,[3,3])
-diag = BDiagram(BNode, BLeaf, mat,0)
-import code;code.interact(local=dict(locals().items() + globals().items()))
-#a=BNode('hallo','x1')
-#b=BNode('hallo1','x2',p=a)
-#c=BNode('hallo1','x2',p=b)
-#d=BNode('hallo1','x2',n=b)

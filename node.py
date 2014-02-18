@@ -12,7 +12,7 @@ class Node(object):
     """
     properties = {}
     
-    def __init__(self, denominator, var):
+    def __init__(self, denominator, var, **parents):
         """        
         all required information are the name of the node
         """
@@ -20,6 +20,8 @@ class Node(object):
         self.child_nodes = {}
         self.parent_nodes = []
         self.variable = var
+        for p in parents:
+            self.add_parent(parents[p])
 
     def set_child(self,child,number):
         """        
@@ -63,11 +65,41 @@ class Node(object):
         else:
             raise Exception('Unrecognized node-reference')
 
+    def remove_parent(self, node):
+        """
+        Removes the specified node as parent
+        """
+        if node in self.parent_nodes:
+            self.parent_nodes.remove(node)
+            return
+        else:
+            raise Warning('Trying to remove parent '+node.name+', which is not parent of node '+self.name)
+
+    def remove_child(self, node):
+        """
+        Removes the specified node as a child
+        """
+        for child in self.child_nodes:
+            if node == self.child_nodes[child]:
+                self.child_nodes.pop(child)
+                return
+        raise Warning('Trying to remove child '+node.name+', which is not child of node '+self.name)
+
+    def is_leaf(self):
+        """
+        This function checks whether the current node is a leaf node
+        """
+        if isinstance(self, Leaf):
+            return True
+        else:
+            return False
+
+
 class BNode(Node):
     """
     This class extends Node for binary graphs
     """
-    def __init__(self,denominator,variable,**parents):
+    def __init__(self, denominator, variable, **parents):
         """
         denominator:    the name of the node (str)
         variable:       the variable represented by the node (str)
@@ -75,11 +107,10 @@ class BNode(Node):
                         child, n if the node is the negative child
         """
 #        super(BNode, self).__init__(denominator,variable)
-        Node.__init__(self,denominator,variable)
-        if not parents == {}:
-            self.add_parent(parents)
+        Node.__init__(self, denominator, variable)
+        self.add_parent(parents)
 
-    def add_parent(self, **parents):
+    def add_parent(self, parents):
         """
         A function overwriting the add_parent method of Node, and extending
         it to include special operations for binary diagrams
@@ -92,19 +123,28 @@ class BNode(Node):
             # creating a negative edge from the parent 
             Node.add_parent(self, parents['n'])
             parents['n'].n = self
+        elif parents == {}:
+            return
+            #raise Warning('Method add_parent called, but list of parents empty.')
         else:
             raise Exception('unknown parent type for a binary node')
     # a @property for easy navigation in binary diagrams        
     @property
     def p(self):
-        return self.child_nodes[1]
+        if 1 in self.child_nodes:
+            return self.child_nodes[1]
+        else:
+            return False
     @p.setter
     def p(self,child):
         Node.set_child(self,child,1)
     # a @property for easy navigation in binary diagrams
     @property
     def n(self):
-        return self.child_nodes[0]
+        if 0 in self.child_nodes:
+            return self.child_nodes[0]
+        else:
+            return False
     @n.setter
     def n(self,child):
         Node.set_child(self, child, 0)
@@ -113,10 +153,11 @@ class Leaf(Node):
     """
     This special node-type is reserved for modeling the leaves of the diagram
     """
-    def __init__(self, denominator, val):
-        Node.__init__(self,denominator,'Value')
+    def __init__(self, denominator, val, **parents):
+        Node.__init__(self, denominator, 'Value')
         self.child_nodes = None
         self.value = val
+        self.add_parent(parents)
     def set_child(self):
         raise Exception('[ERROR] Trying to add a child to a leaf node.')
         return None
@@ -125,7 +166,7 @@ class BLeaf(Leaf):
     """
     A special class for leaves in binary diagrams
     """
-    def add_parent(self, **parents):
+    def add_parent(self, parents):
         """
         A function overwriting the add_parent method of Node, and extending
         it to include special operations for binary diagrams
@@ -138,5 +179,7 @@ class BLeaf(Leaf):
             # creating a negative edge from the parent
             Node.add_parent(self, parents['n'])
             parents['n'].n = self
+        elif parents == {}:
+            return
         else:
             raise Exception('unknown parent type for a binary node')

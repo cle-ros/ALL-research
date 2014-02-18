@@ -56,7 +56,7 @@ def get_non_null_components(matrix, null_value, no_vars):
     return np.array(indices,dtype=int),np.array(leaves)
 
 
-def sortVariables(indices, variables):
+def sort_variables(indices, variables):
     """
     This method sorts the variables of a given boolean function
     DEPRECATED, should not be used
@@ -88,7 +88,7 @@ def compute_diagram(diagram, boolMat, leaves, varNames, matSize):
     # to one large, and easier to handle, matrix
     tmp_mat = np.append(varNames[None],boolMat,axis=0)
     tmp_mat = np.append(tmp_mat,np.append([-1],leaves,axis=1)[None].T,axis=1)
-    root = diagram.add_node(varNames[0])
+    root = diagram.add_node(varNames[0], varNames[0])
     # calling the function which builds the tree recursively
     append_nodes_recursively(diagram, tmp_mat, root)
     return root
@@ -127,7 +127,7 @@ def append_nodes_recursively(diagram, children, parent):
             # creating the name of the node, denoted by the path leading to it            
             node_name = children[0,1]+'.'+parent.name
             # adding the node
-            new_node = diagram.add_node(node_name)
+            new_node = diagram.add_node(node_name, children[0,1])
             # adding the edge
             diagram.add_p_edge(parent, new_node)
             # doing the recursive call
@@ -137,29 +137,12 @@ def append_nodes_recursively(diagram, children, parent):
             # creating the name of the node, denoted by the path leading to it
             node_name = children[0,1]+'.-'+parent.name
             # adding the node
-            new_node = diagram.add_node(node_name)
+            new_node = diagram.add_node(node_name, children[0,1])
             # adding the edge
             diagram.add_n_edge(parent, new_node)
             # doing the recursive call
             append_nodes_recursively(diagram, neg_children, new_node)
         return
-
-# def getLeaves(tree,node):
-#     """
-#     This function iterates recurively over a path and collects all subsequent
-#     leaves
-#     """
-#     leaves = []
-#     leaves = getLeavesRec(node,leaves)
-#     return leaves
-
-# def getLeavesRec(tree,node,leaves):
-#     if tree.get_node(node)[isLeave]:
-#         leaves.append(node)
-#         return leaves
-#     for child in tree.get_nodes(node,child):
-#         leaves.append(getLeavesRec(tree,child,leaves))
-#     return leaves
 
 def reduceDiagram(tree):
     return
@@ -182,7 +165,7 @@ def initialize_diagram(diagram, matrix, null_value):
     indices,leaves = get_non_null_components(matrix,null_value,no_vars)
 
     var_names = getVarNames(no_vars[0])
-    sorted_indices, sorted_variable_names, sorted_order = sortVariables(indices, var_names)
+    sorted_indices, sorted_variable_names, sorted_order = sort_variables(indices, var_names)
     root = compute_diagram(diagram, sorted_indices, leaves, sorted_variable_names, no_vars)
     
-    return root
+    return root, var_names
