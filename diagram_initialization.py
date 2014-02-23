@@ -156,16 +156,14 @@ def initialize_diagram(diagram, matrix, null_value):
     :param null_value:
     :return:
     """
-    no_vars = getReqVars(matrix)
-    print no_vars
-    matrix = expandMatrix2n(matrix,no_vars[1:],null_value)
-    print matrix
+    no_vars = get_req_vars(matrix)
+    matrix = expand_matrix2n(matrix,no_vars[1:],null_value)
     # constructing the tree
     # adding the nodes, named x0,x1,...xn, where n is the number of required vars
     indices,leaves = get_non_null_components(matrix,null_value,no_vars)
 
-    var_names = getVarNames(no_vars[0])
+    var_names = get_var_names(no_vars[0])
     sorted_indices, sorted_variable_names, sorted_order = sort_variables(indices, var_names)
     root = compute_diagram(diagram, sorted_indices, leaves, sorted_variable_names, no_vars)
     
-    return root, var_names
+    return root, var_names[:no_vars[1]], var_names[no_vars[1]:]

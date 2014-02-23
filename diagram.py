@@ -26,6 +26,8 @@ class Diagram(object):
         if not mat is None:
             self.shape = mat.shape
         self.root = self.initialize(mat)
+        self.vertical_var_names = []
+        self.horizontal_var_names = []
 
     def initialize(self, mat):
         """
@@ -36,7 +38,8 @@ class Diagram(object):
         if mat is None:
             return None
         else:
-            root = initialize_diagram(self, np.array(mat), self.null_value)
+            root, self.vertical_var_names, self.horizontal_var_names = initialize_diagram(self, np.array(mat),
+                                                                                          self.null_value)
             self.set_root(root)
             return root
 
@@ -97,7 +100,7 @@ class Diagram(object):
         node1.add_child(node2)
         return
 
-    def remove_edge(self, node1, node2):
+    def remove_edge(node1, node2):
         node2.remove_parent(node1)
         node1.remove_child(node2)
         return
@@ -109,15 +112,9 @@ class Diagram(object):
         :param ref:
         """
         if isinstance(ref, np.string_) or isinstance(ref, str):
-            if ref in self.leaves:
-                return True
-            else:
-                return False
+            return ref in self.leaves
         elif isinstance(ref, self.leaf_type):
-            if ref in self.nodes.values():
-                return True
-            else:
-                return False
+            return ref in self.nodes.values()
         else:
             raise Exception('Trying to access leaves by unknown reference type.')
             
@@ -128,15 +125,9 @@ class Diagram(object):
         :param ref:
         """
         if type(ref) == 'str':
-            if ref in self.nodes:
-                return True
-            else:
-                return False
-        elif isinstance(ref,self.node_type):
-            if ref in self.nodes.values():
-                return True
-            else:
-                return False
+            return ref in self.nodes
+        elif isinstance(ref, self.node_type):
+            return ref in self.nodes.values()
         else:
             raise Exception('Trying to access nodes by unknown reference type.')
 
@@ -154,10 +145,7 @@ class Diagram(object):
         :param node1:
         :param node2:
         """
-        if node1.has_child(node2):
-            return True
-        else:
-            return False
+        return node1.has_child(node2):
 
     def remove_edge(self, node1, node2):
         """
@@ -213,13 +201,12 @@ class BDiagram(Diagram):
         :param node2:
         """
         if bin_type == 'p':
-            node2.add_parent({'p':node1})
+            node2.add_parent({'p': node1})
         elif bin_type == 'n':
-            node2.add_parent({'n':node1})
+            node2.add_parent({'n': node1})
         else:
             raise Exception('Unknown edge/child type for a binary diagram.')
         return
-
 
     def add_p_edge(self, node1, node2):
         """
@@ -228,7 +215,6 @@ class BDiagram(Diagram):
         :param node2:
         """
         self.add_edge(node1, node2, 'p')
-
 
     def add_n_edge(self, node1, node2):
         """

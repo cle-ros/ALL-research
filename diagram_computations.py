@@ -17,7 +17,21 @@ def diagram_shallow_copy(diagram):
     new_diag.shape = diagram.shape
     return new_diag
 
-def check_diagrams(dia1, dia2, options={}):
+
+def check_diagrams(dia1, dia2, **options):
+    """
+    This function first checks whether two diagrams, dia1 and dia2, are compatible, i.e. whether they represent to
+    matrices of the same dimension.
+    If so, the function creates a diagram of the same dimension, which can be populated with some operation on the two
+    operands.
+    :param dia1: one diagram (in order)
+    :param dia2: another diagram (in order)
+    :param options:
+        diagram in_place    if a diagram is specified via the in_place parameter, that diagram will be overwritten
+                            by the new diagram
+        double null_value   specifies the null_value for the new diagram; defaults to the null_value of dia1 and dia2
+    :return: :raise Exception:
+    """
     null_value = None
     in_place = False
     # option checking
@@ -56,7 +70,7 @@ def add_diagrams(dia1, dia2, **options):
 
     This function does a bottom-up addition
     """
-    result = check_diagrams(dia1, dia2, options)
+    result = check_diagrams(dia1, dia2, **options)
 
     # the addition sequence:
     """
@@ -128,7 +142,7 @@ def elementwise_multiply_diagrams(dia1, dia2, **options):
     :return: a diagram representing the element-wise matrix product
     """
 #    opt = convert_options(options)
-    result = check_diagrams(dia1, dia2, options)
+    result = check_diagrams(dia1, dia2, **options)
     result.root = elementwise_multiply_diagrams_rec(result, dia1.root, dia2.root)
     return result
 
@@ -149,8 +163,6 @@ def elementwise_multiply_diagrams_rec(diagram, node1, node2, parent={}):
         # checking for the cases in which a fork exists in both diagrams
         node_p = node1.p and node2.p
         node_n = node1.n and node2.n
-        print node_p
-        print node_n
         if node_p or node_n:
             node = diagram.add_node(node1.name, node1.variable)
             node.add_parent(parent)
@@ -186,6 +198,12 @@ def skalar_multiply_diagram(diag1, skalar):
     return result
 
 def transpose_diagram(diagram):
+    """
+    This transposes the underlying matrix. The basic operation is to exchange the horizontal with the vertical variables,
+    or, in diagram-terms, to exchange the upper half of the diagram representing the vertical variables with the lower
+    half, representing the horizontal variables.
+    """
+    steps_down = diagram.shape[0]
 
     return
 #mat1 = np.random.random_integers(0,5,[3,3])
