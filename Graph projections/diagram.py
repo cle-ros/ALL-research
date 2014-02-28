@@ -9,7 +9,7 @@ from node import *
 from diagram_initialization import *
 
 class Diagram(object):
-    def __init__(self, ntype, ltype, nv, mat = None):
+    def __init__(self, ntype, ltype, nv, mat=None):
         """
         Initializing the Object.
         :param ntype:   type of the nodes (i.e. BNode for binary)
@@ -23,11 +23,12 @@ class Diagram(object):
         self.leaves = {}
         self.matrix = np.array(mat)
         self.null_value = nv
+        self.no_variables = []
+        self.vertical_var_names = []
+        self.horizontal_var_names = []
         if not mat is None:
             self.shape = mat.shape
         self.root = self.initialize(mat)
-        self.vertical_var_names = []
-        self.horizontal_var_names = []
 
     def initialize(self, mat):
         """
@@ -38,8 +39,10 @@ class Diagram(object):
         if mat is None:
             return None
         else:
-            root, self.vertical_var_names, self.horizontal_var_names = initialize_diagram(self, np.array(mat),
-                                                                                          self.null_value)
+            root, vvn, hvn, nv = initialize_diagram(self, np.array(mat), self.null_value)
+            self.vertical_var_names = vvn
+            self.horizontal_var_names = hvn
+            self.no_variables = nv
             self.set_root(root)
             return root
 
@@ -56,7 +59,7 @@ class Diagram(object):
             raise Exception('Node already present in Diagram')
         else:
             # creating the node object
-            new_node = self.node_type(denominator, variable)
+            new_node = self.node_type(denominator, variable, **parents)
             # adding the node to the list of nodes in the diagram
             self.nodes[denominator] = new_node
             return new_node
@@ -145,7 +148,7 @@ class Diagram(object):
         :param node1:
         :param node2:
         """
-        return node1.has_child(node2):
+        return node1.has_child(node2)
 
     def remove_edge(self, node1, node2):
         """
@@ -164,7 +167,6 @@ class Diagram(object):
                 self.leaves.pop(key)
                 return
         raise Warning('No leaf '+leaf.name+' present in the leaves of '+self.name)
-        return
 
     def remove_node(self, node):
         """
@@ -224,4 +226,40 @@ class BDiagram(Diagram):
         """
         self.add_edge(node1, node2, 'n')
 
+    def to_matrix(self):
+        """
+        This method returns the matrix represented by the diagram
+        """
+        def to_mat_rec(node, depth, no_vars, nv):
+            # making sure the node exists
+            if not node:
+                return None
+            # checking whether the node is a leaf
+            if node.is_leaf():
+                print node.value
+                return np.array(node.value)[None]
+            else:
+                # the recursive call
+                nfork = to_mat_rec(node.n, depth+1, no_vars, nv)
+                pfork = to_mat_rec(node.p, depth+1, no_vars, nv)
+                # getting the size for a missing fork
+                try:
+                    shape = nfork.shape
+                except AttributeError:
+                    shape = pfork.shape
+                print shape
+                if pfork is None:
+                    pfork = np.ones(shape)*nv
+                if nfork is None:
+                    nfork = np.ones(shape)*nv
+                # deciding whether the matrices shall be horizontally or vertically concatenated
+                if depth > no_vars:
+                    print 'concatenating horizontally'
+                    print nfork
+                    print pfork
+                    return np.concatenate((nfork, pfork))
+                else:
+                    print 'concatenating vertically'
+                    return np.array([nfork, pfork])
+        return to_mat_rec(self.root, 0, self.no_variables[1], self.null_value)
 

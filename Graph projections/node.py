@@ -23,7 +23,7 @@ class Node(object):
         for p in parents:
             self.add_parent(parents[p])
 
-    def set_child(self,child,number):
+    def set_child(self, child, number):
         """        
         setting a node as a child node, where number denotes an internal reference
         """
@@ -31,8 +31,8 @@ class Node(object):
             self.child_nodes[number] = child
         else:
             raise Exception('Trying to add a non-node object as child node')
-    
-    def add_parent(self,parent):
+
+    def add_parent(self, parent):
         """
         setting a parent
         """
@@ -40,7 +40,7 @@ class Node(object):
             self.parent_nodes.append(parent)
         else:
             raise Exception('Trying to add a non-node object as parent node')
-    
+
     def has_child(self,node):
         """
         This function checks whether a node already is a child of the given node
@@ -90,6 +90,8 @@ class Node(object):
         This function checks whether the current node is a leaf node
         """
         if isinstance(self, Leaf):
+            print 'isleaf'
+            print self.value
             return True
         else:
             return False

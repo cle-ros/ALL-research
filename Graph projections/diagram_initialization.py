@@ -165,5 +165,5 @@ def initialize_diagram(diagram, matrix, null_value):
     var_names = get_var_names(no_vars[0])
     sorted_indices, sorted_variable_names, sorted_order = sort_variables(indices, var_names)
     root = compute_diagram(diagram, sorted_indices, leaves, sorted_variable_names, no_vars)
-    
-    return root, var_names[:no_vars[1]], var_names[no_vars[1]:]
+    print no_vars
+    return root, var_names[:no_vars[1]], var_names[no_vars[1]:], no_vars

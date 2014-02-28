@@ -31,10 +31,11 @@ def get_req_vars(mat):
     """
     # checking the matrix dimension
     # 1. getting a binary representation of the shape
-    vSize = re.sub("0b0*",'',bin(mat.shape[0]))
-    hSize = re.sub("0b0*",'',bin(mat.shape[1]))
+    vSize = np.ceil(np.log2(mat.shape[0]))
+    hSize = np.ceil(np.log2(mat.shape[1]))
+    dim = max([int(vSize), int(hSize)])
     # 2. computing the number of variables required for a matrix of this size
-    return [len(vSize)+len(hSize),len(vSize),len(hSize)]
+    return [2 * dim, dim, dim]
 
 
 def expand_matrix2n(matrix, demSize, nullValue):
@@ -46,7 +47,7 @@ def expand_matrix2n(matrix, demSize, nullValue):
     :param nullValue:
     :return:
     """
-    mat = np.ones([2**demSize[0],2**demSize[1]]) * nullValue
+    mat = np.identity(max([2**demSize[0],2**demSize[1]])) * nullValue
     mat[0:matrix.shape[0],0:matrix.shape[1]] = matrix
     return mat
 
@@ -59,6 +60,6 @@ def get_var_names(noVars):
     :return:
     """
     varNames = []
-    for i in range(noVars):
+    for i in range(int(noVars)):
         varNames.append('x'+str(i+1))
     return varNames
