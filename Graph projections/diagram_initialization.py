@@ -12,12 +12,11 @@ import numpy as np
 import re
 
 # from diagram import Diagram
-from node import *
 from diagram_matrix_and_variable_operations import *
 
 
 def get_conjunctions(leaves):
-    # convert the list of leaves to a dictionary for the different values
+    # convert the list of leaves_array to a dictionary for the different values
     """
     This method computes the conjuctions defining the formula
     :param leaves:
@@ -73,85 +72,84 @@ def sort_variables(indices, variables):
     return indices,variables,order
 
 
-def compute_diagram(diagram, boolMat, leaves, varNames, matSize):
+def compute_diagram(node, boolMat, leaves, varNames, matSize):
     """
     This function computes a diagram from a given tree-object, a matrix
     containing all paths to non-null values in a boolean form, the according 
-    leaves and the name of the variables.
-    :param diagram:
+    leaves_array and the name of the variables.
+    :param node:
     :param boolMat:
     :param leaves:
     :param varNames:
     :param matSize:
     """
-    # concatenating the boolean matrix, the leaves and the variable names
+    # concatenating the boolean matrix, the leaves_array and the variable names
     # to one large, and easier to handle, matrix
     tmp_mat = np.append(varNames[None],boolMat,axis=0)
     tmp_mat = np.append(tmp_mat,np.append([-1],leaves,axis=1)[None].T,axis=1)
-    root = diagram.add_node(varNames[0], varNames[0])
     # calling the function which builds the tree recursively
-    append_nodes_recursively(diagram, tmp_mat, root)
-    return root
+    append_nodes_recursively(node, tmp_mat)
+    return node
 
 
-def append_nodes_recursively(diagram, children, parent):
+def append_nodes_recursively(node, children):
     """
     This function appends nodes to a given parent recursively, based on the 
     specifications given in the 'children' matrix
-    :param diagram:
+    :param node:
     :param children:
-    :param parent:
     """
-    # appending leaves
+    from node import NoSuchNode
+    # appending leaves_array
     if children.shape[1] == 2:
         for i in range(children.shape[0]-1):
             # does the leave exist?
-            leaf = object
-            if not diagram.has_leaf(children[i+1,1]):
-                leaf = diagram.add_leaf(children[i+1,1], np.double(children[i+1,1]))
-            else:
-                leaf = diagram.leaves[children[i+1,1]]
+            # leaf = object
+            try:
+                leaf = node.get_leaf(children[i+1,1])
+            except NoSuchNode:
+                leaf = node.leaf_type(children[i+1,1], np.double(children[i+1,1]))
             # deciding on the edge to the leave (false/pos)
-            if children[i+1,0] == '0':
-                diagram.add_n_edge(parent, leaf)
-            if children[i+1,0] == '1':
-                diagram.add_p_edge(parent, leaf)
-        return diagram
+            if children[i+1, 0] == '0':
+                node.n = leaf
+            if children[i+1, 0] == '1':
+                node.p = leaf
+        return leaf
     # appending nodes
     else:
         # dividing the matrix into the positive and the negative child-submatrices
-        pos_children = np.append(children[0,1:][None],children[children[:,0]=='1'][:,1:],axis=0)
-        neg_children = np.append(children[0,1:][None],children[children[:,0]=='0'][:,1:],axis=0)
+        pos_children = np.append(children[0, 1:][None], children[children[:, 0] == '1'][:, 1:], axis=0)
+        neg_children = np.append(children[0, 1:][None], children[children[:, 0] == '0'][:, 1:], axis=0)
         # creating the 'positive' subdiagram
-        if pos_children.shape[0] >1:
-            # creating the name of the node, denoted by the path leading to it            
-            node_name = children[0,1]+'.'+parent.name
+        if pos_children.shape[0] > 1:
+            # creating the name of the node, denoted by the path leading to it
+            node_name = children[0, 1]+'.'+node.name
             # adding the node
-            new_node = diagram.add_node(node_name, children[0,1])
+            new_node = type(node)(node_name, children[0, 1])
             # adding the edge
-            diagram.add_p_edge(parent, new_node)
+            node.p = new_node
             # doing the recursive call
-            append_nodes_recursively(diagram, pos_children, new_node)
+            append_nodes_recursively(new_node, pos_children)
         # creating the 'negative' subdiagram
         if neg_children.shape[0] >1:
             # creating the name of the node, denoted by the path leading to it
-            node_name = children[0,1]+'.-'+parent.name
+            node_name = children[0, 1]+'.-'+node.name
             # adding the node
-            new_node = diagram.add_node(node_name, children[0,1])
+            new_node = type(node)(node_name, children[0, 1])
             # adding the edge
-            diagram.add_n_edge(parent, new_node)
+            node.n = new_node
             # doing the recursive call
-            append_nodes_recursively(diagram, neg_children, new_node)
-        return
+            append_nodes_recursively(new_node, neg_children)
+        return new_node
 
 def reduceDiagram(tree):
     return
 
-def initialize_diagram(diagram, matrix, null_value):
+def initialize_diagram(node, matrix, null_value):
     # getting the number of required vars
     """
     Initializing the diagram, wrapping around compute_diagram
-    :param diagram:
+    :param node:
     :param matrix:
     :param null_value:
     :return:
@@ -164,6 +162,6 @@ def initialize_diagram(diagram, matrix, null_value):
 
     var_names = get_var_names(no_vars[0])
     sorted_indices, sorted_variable_names, sorted_order = sort_variables(indices, var_names)
-    root = compute_diagram(diagram, sorted_indices, leaves, sorted_variable_names, no_vars)
+    compute_diagram(node, sorted_indices, leaves, sorted_variable_names, no_vars)
     print no_vars
-    return root, var_names[:no_vars[1]], var_names[no_vars[1]:], no_vars
+    return no_vars[1:], node

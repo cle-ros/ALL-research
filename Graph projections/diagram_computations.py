@@ -8,15 +8,14 @@ from node import *
 from diagram import *
 import copy
 
-def diagram_shallow_copy(diagram):
+def diagram_shallow_copy(node):
     """
     This function creates a new diagram based on an existing one as "blueprint".
     I.e. the result will have the same shape
     """
-    new_diag = type(diagram)(diagram.node_type, diagram.leaf_type, diagram.null_value)
-    new_diag.shape = diagram.shape
-    new_diag.no_variables = diagram.no_variables
-    return new_diag
+    new_node = type(node)(node.name, node.null_value)
+#    new_node.shape = node.shape
+    return new_node
 
 
 def create_target_diagram(dia1, dia2, **options):
@@ -45,8 +44,8 @@ def create_target_diagram(dia1, dia2, **options):
             raise Exception('Cannot create the resulting diagram in the place of '+options['in_place'])
 
     # making sure the two diagrams each have the same shape
-    if not dia1.shape == dia2.shape:
-        raise Exception('Can only add two diagrams if the underlying data is of the same dimensionality.')
+#    if not dia1.shape == dia2.shape:
+#        raise Exception('Can only add two diagrams if the underlying data is of the same dimensionality.')
 
     # checking for the same nullValue
     if not dia1.null_value == dia2.null_value and not null_value is None:
@@ -79,12 +78,11 @@ def add_diagrams(dia1, dia2, **options):
             subdiagram (i.e. deepcopy the whole subdiagram)
     3. clean up
     """
-    result = create_target_diagram(dia1, dia2, **options)
-    root = add_diagrams_rec(result, dia1.root, dia2.root)
-    result.set_root(root)
-    return result
+    #    result = create_target_diagram(dia1, dia2, **options)
+    return add_binary_diagrams_rec(dia1, dia2)
 
-def add_diagrams_rec(diagram, node1, node2, parents={}):
+
+def add_binary_diagrams_rec(node1, node2):
     """
     This function adds two subdiagrams specified by the respective root_node, node1/node2
     """
@@ -95,30 +93,26 @@ def add_diagrams_rec(diagram, node1, node2, parents={}):
         print value
         if value == 0:
             return False
-        leaf = diagram.add_leaf(str(value), value)
-        if 'p' in parents:
-            diagram.add_p_edge(parents['p'], leaf)
-        if 'n' in parents:
-            diagram.add_n_edge(parents['n'], leaf)
-        return leaf
+        return node1.leaf_type(str(value), value)
     else:
         # checking for the cases in which a fork exists in both diagrams
-        node = diagram.add_node(node1.name, node1.variable)
-        node.add_parent(parents)
+        node = type(node1)(node1.name, node1.null_value)
         # checking for the positive fork:
         if node1.p and node2.p:
-            p_edge = add_diagrams_rec(diagram, node1.p, node2.p, {'p': node})
+            p_edge = add_binary_diagrams_rec(node1.p, node2.p)
             if p_edge:
                 print 'p_edge'
                 node.p = p_edge
+                return node
             else:
                 return False
         # checking for the negative fork:
         if node1.n and node2.n:
-            n_edge = add_diagrams_rec(diagram, node1.n, node2.n, {'n': node})
+            n_edge = add_binary_diagrams_rec(node1.n, node2.n)
             if n_edge:
                 print 'n_edge'
                 node.n = n_edge
+                return node
             else:
                 return False
         # checking for forks off node1 and not off node2
@@ -133,6 +127,7 @@ def add_diagrams_rec(diagram, node1, node2, parents={}):
             node.n = copy.deepcopy(node2.n)
         return node
 
+
 def elementwise_multiply_diagrams(dia1, dia2, **options):
     """
     This method multiplies two diagrams element-wise, i.e. the MATLAB .* operation.
@@ -144,6 +139,7 @@ def elementwise_multiply_diagrams(dia1, dia2, **options):
     result = create_target_diagram(dia1, dia2, **options)
     result.root = elementwise_multiply_diagrams_rec(result, dia1.root, dia2.root)
     return result
+
 
 def elementwise_multiply_diagrams_rec(diagram, node1, node2, parent={}):
     """
@@ -184,16 +180,16 @@ def elementwise_multiply_diagrams_rec(diagram, node1, node2, parent={}):
             return False
 
 
-def skalar_multiply_diagram(diag1, skalar):
+def scalar_multiply_diagram(diagram, scalar):
     """
-    This function multiplies all leaves in the diagram by a skalar
-    :param diag1:
-    :param skalar:
+    This function multiplies all leaves_array in the diagram by a skalar
+    :param diagram:
+    :param scalar:
     :return:
     """
-    result = copy.deepcopy(diag1)
-    for leaf in result.leaves:
-        result.leaves[leaf].value = result.leaves[leaf].value * skalar
+    result = copy.deepcopy(diagram)
+    for leaf in result.leaves_array:
+        leaf.value = leaf.value*scalar
     return result
 
 
@@ -242,13 +238,15 @@ if __name__ == "__main__":
     #mat2 = np.random.random_integers(-5,0,[3,3])
     mat1 = np.array([[1,2,0],[0,2,0],[0,2,1]])
     mat2 = np.array([[0,-2,0],[0,-2,0],[0,-2,-1]])
-    diag1 = BDiagram(BNode, BLeaf, 0, mat1)
-    diag2 = BDiagram(BNode, BLeaf, 0, mat2)
+    diag1 = BNode('x0')
+    diag2 = BNode('y0')
+    initialize_diagram(diag1, mat1, 0)
+    initialize_diagram(diag2, mat1, 0)
     print mat1
     print mat2
     print mat1+mat2
     diag3 = add_diagrams(diag1, diag2)
-    print diag3.to_matrix()
+    #print diag3.to_matrix()
     import code;code.interact(local=dict(locals().items() + globals().items()))
     #a=BNode('hallo','x1')
     #b=BNode('hallo1','x2',p=a)

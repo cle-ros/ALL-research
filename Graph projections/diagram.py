@@ -13,7 +13,7 @@ class Diagram(object):
         """
         Initializing the Object.
         :param ntype:   type of the nodes (i.e. BNode for binary)
-        :param ltype:   type of the leaves
+        :param ltype:   type of the leaves_array
         :param mat:     the data matrix the diagram shall be constructed from
         :param nv:      null value, i.e. the most uninformative entry in the matrix
         """
@@ -81,7 +81,7 @@ class Diagram(object):
     def add_leaf(self, denominator, value):
         """
         :param denominator:
-        :param parent:
+        :param value:
         :return: :raise Exception:
         """
         if denominator in self.leaves:
@@ -104,7 +104,11 @@ class Diagram(object):
         return
 
     def remove_edge(node1, node2):
-        node2.remove_parent(node1)
+        """
+        This method removes an edge relation between node1 (parent) and node2.
+        :param node2:
+        :return:
+        """
         node1.remove_child(node2)
         return
 
@@ -119,7 +123,7 @@ class Diagram(object):
         elif isinstance(ref, self.leaf_type):
             return ref in self.nodes.values()
         else:
-            raise Exception('Trying to access leaves by unknown reference type.')
+            raise Exception('Trying to access leaves_array by unknown reference type.')
             
     def has_node(self, ref):
         """
@@ -150,14 +154,6 @@ class Diagram(object):
         """
         return node1.has_child(node2)
 
-    def remove_edge(self, node1, node2):
-        """
-        This function removes an existing edge between two nodes.
-        """
-        node1.remove_child(node2)
-        node2.remove_parent(node1)
-        return
-
     def remove_leaf(self, leaf):
         """
         This method removes a leave from the diagram. Preferably called via remove_entry(node), and not directly.
@@ -166,7 +162,7 @@ class Diagram(object):
             if value == leaf:
                 self.leaves.pop(key)
                 return
-        raise Warning('No leaf '+leaf.name+' present in the leaves of '+self.name)
+        raise Warning('No leaf '+leaf.name+' present in the leaves_array of '+self.name)
 
     def remove_node(self, node):
         """
@@ -177,7 +173,6 @@ class Diagram(object):
                 self.leaves.pop(key)
                 return
         raise Warning('No node '+node.name+' present in the nodes of '+self.name)
-        return
 
     def remove_entry(self, node):
         """
@@ -192,7 +187,6 @@ class Diagram(object):
             return
         else:
             raise Warning('No entry '+node.name+' present in the entries of '+self.name)
-            return
 
 
 class BDiagram(Diagram):
@@ -203,9 +197,9 @@ class BDiagram(Diagram):
         :param node2:
         """
         if bin_type == 'p':
-            node2.add_parent({'p': node1})
+            node1.p = node2
         elif bin_type == 'n':
-            node2.add_parent({'n': node1})
+            node1.n = node2
         else:
             raise Exception('Unknown edge/child type for a binary diagram.')
         return
@@ -225,41 +219,4 @@ class BDiagram(Diagram):
         :param node2:
         """
         self.add_edge(node1, node2, 'n')
-
-    def to_matrix(self):
-        """
-        This method returns the matrix represented by the diagram
-        """
-        def to_mat_rec(node, depth, no_vars, nv):
-            # making sure the node exists
-            if not node:
-                return None
-            # checking whether the node is a leaf
-            if node.is_leaf():
-                print node.value
-                return np.array(node.value)[None]
-            else:
-                # the recursive call
-                nfork = to_mat_rec(node.n, depth+1, no_vars, nv)
-                pfork = to_mat_rec(node.p, depth+1, no_vars, nv)
-                # getting the size for a missing fork
-                try:
-                    shape = nfork.shape
-                except AttributeError:
-                    shape = pfork.shape
-                print shape
-                if pfork is None:
-                    pfork = np.ones(shape)*nv
-                if nfork is None:
-                    nfork = np.ones(shape)*nv
-                # deciding whether the matrices shall be horizontally or vertically concatenated
-                if depth > no_vars:
-                    print 'concatenating horizontally'
-                    print nfork
-                    print pfork
-                    return np.concatenate((nfork, pfork))
-                else:
-                    print 'concatenating vertically'
-                    return np.array([nfork, pfork])
-        return to_mat_rec(self.root, 0, self.no_variables[1], self.null_value)
 
