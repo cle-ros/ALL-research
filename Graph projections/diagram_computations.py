@@ -4,9 +4,10 @@ Created on Fri Feb 14 13:11:22 2014
 
 @author: clemens
 """
-from node import *
-from diagram import *
 import copy
+# from diagram import *
+from node import Node, BNode
+
 
 def diagram_shallow_copy(node):
     """
@@ -38,7 +39,7 @@ def create_target_diagram(dia1, dia2, **options):
     if 'null_value' in options:
         null_value = options['null_value']
     if 'in_place' in options:
-        if isinstance(options['in_place'],Node):
+        if isinstance(options['in_place'], Node):
             in_place = options['in_place']
         else:
             raise Exception('Cannot create the resulting diagram in the place of '+options['in_place'])
@@ -62,123 +63,6 @@ def create_target_diagram(dia1, dia2, **options):
     else:
         result = diagram_shallow_copy(dia1)
     return result
-
-def add_diagrams(dia1, dia2, **options):
-    """
-    This function adds two graphs. The underlying logic represents matrix addition, and therefore requires the same
-     shape of the two diagrams.
-
-    This function does a bottom-up addition
-    # the addition sequence:
-    1. Go down the diagram, starting with the same variable for each.
-    2. for each edge, do the following:
-        a. if the edge exists in both diagrams, add the corresponding node to the new diagram and look at both
-            subdiagrams for that new node, and goto 2
-        b. if the edge does only exist in one diagram, add the corresponding node to the new diagram and ignore the
-            subdiagram (i.e. deepcopy the whole subdiagram)
-    3. clean up
-    """
-    #    result = create_target_diagram(dia1, dia2, **options)
-    return add_binary_diagrams_rec(dia1, dia2)
-
-
-def add_binary_diagrams_rec(node1, node2):
-    """
-    This function adds two subdiagrams specified by the respective root_node, node1/node2
-    """
-    # checking for the type of node:
-    if node1.is_leaf() and node2.is_leaf():
-        value = node1.value+node2.value
-        print 'leaf'
-        print value
-        if value == 0:
-            return False
-        return node1.leaf_type(str(value), value)
-    else:
-        # checking for the cases in which a fork exists in both diagrams
-        node = type(node1)(node1.name, node1.null_value)
-        # checking for the positive fork:
-        if node1.p and node2.p:
-            p_edge = add_binary_diagrams_rec(node1.p, node2.p)
-            if p_edge:
-                print 'p_edge'
-                node.p = p_edge
-                return node
-            else:
-                return False
-        # checking for the negative fork:
-        if node1.n and node2.n:
-            n_edge = add_binary_diagrams_rec(node1.n, node2.n)
-            if n_edge:
-                print 'n_edge'
-                node.n = n_edge
-                return node
-            else:
-                return False
-        # checking for forks off node1 and not off node2
-        if node1.p and not node2.p:
-            node.p = copy.deepcopy(node1.p)
-        if node1.n and not node2.n:
-            node.n = copy.deepcopy(node1.n)
-        # checking for forks off node2 and not off node1
-        if node2.p and not node1.p:
-            node.p = copy.deepcopy(node2.p)
-        if node2.n and not node1.n:
-            node.n = copy.deepcopy(node2.n)
-        return node
-
-
-def elementwise_multiply_diagrams(dia1, dia2, **options):
-    """
-    This method multiplies two diagrams element-wise, i.e. the MATLAB .* operation.
-    :param dia1:
-    :param dia2:
-    :return: a diagram representing the element-wise matrix product
-    """
-#    opt = convert_options(options)
-    result = create_target_diagram(dia1, dia2, **options)
-    result.root = elementwise_multiply_diagrams_rec(result, dia1.root, dia2.root)
-    return result
-
-
-def elementwise_multiply_diagrams_rec(diagram, node1, node2, parent={}):
-    """
-    This function multiplies two subdiagrams specified by the respective root_node, node1/node2
-    """
-    # checking for the type of node:
-    if node1.is_leaf() and node2.is_leaf():
-        value = node1.value*node2.value
-        leaf = diagram.add_leaf(str(value), value)
-        if 'p' in parent:
-            diagram.add_p_edge(parent['p'], leaf)
-        if 'n' in parent:
-            diagram.add_p_edge(parent['n'], leaf)
-        return leaf
-    else:
-        # checking for the cases in which a fork exists in both diagrams
-        node_p = node1.p and node2.p
-        node_n = node1.n and node2.n
-        if node_p or node_n:
-            node = diagram.add_node(node1.name, node1.variable)
-            node.add_parent(parent)
-            # checking for the positive fork:
-            if node_p:
-                p_edge = elementwise_multiply_diagrams_rec(diagram, node1.p, node2.p, {'p':node})
-                if p_edge:
-                    node.p = p_edge
-                else:
-                    return False
-            # checking for the negative fork:
-            if node_n:
-                n_edge = elementwise_multiply_diagrams_rec(diagram, node1.n, node2.n, {'n':node})
-                if n_edge:
-                    node.n = n_edge
-                else:
-                    return False
-            return node
-        else:
-            return False
-
 
 def scalar_multiply_diagram(diagram, scalar):
     """
@@ -233,21 +117,181 @@ def multiply_diagram(diag1, diag2, **options):
     return
 
 
+def add_diagrams(dia1, dia2):
+    """
+    This function adds two graphs. The underlying logic represents matrix addition, and therefore requires the same
+     shape of the two diagrams.
+
+    This function does a bottom-up addition
+    # the addition sequence:
+    1. Go down the diagram, starting with the same variable for each.
+    2. for each edge, do the following:
+        a. if the edge exists in both diagrams, add the corresponding node to the new diagram and look at both
+            subdiagrams for that new node, and goto 2
+        b. if the edge does only exist in one diagram, add the corresponding node to the new diagram and ignore the
+            subdiagram (i.e. deepcopy the whole subdiagram)
+    3. clean up
+    """
+    #    result = create_target_diagram(dia1, dia2, **options)
+    def add_binary_diagrams_rec(node1, node2, found_leaves):
+        """
+        This function adds two subdiagrams specified by the respective root_node, node1/node2
+        """
+        # checking for the type of node:
+        if node1.is_leaf() and node2.is_leaf():
+            value = node1.value+node2.value
+            if value == 0:
+                return False
+            if value in found_leaves:
+                return found_leaves[value]
+            leaf = node1.leaf_type(value, value)
+            found_leaves[value] = leaf
+            return leaf
+        else:
+            # checking for the cases in which a fork exists in both diagrams
+            node = type(node1)(node1.name, node1.null_value)
+            # checking for the positive fork:
+            if node1.p and node2.p:
+                p_edge = add_binary_diagrams_rec(node1.p, node2.p, found_leaves)
+                if p_edge:
+                    node.p = p_edge
+                    node.d = p_edge.d + 1
+            # checking for the negative fork:
+            if node1.n and node2.n:
+                n_edge = add_binary_diagrams_rec(node1.n, node2.n, found_leaves)
+                if n_edge:
+                    node.n = n_edge
+                    node.d = n_edge.d + 1
+            # checking for forks off node1 and not off node2
+            if node1.p and not node2.p:
+                node.p = copy.deepcopy(node1.p)
+                node.d = node.p.d + 1
+            if node1.n and not node2.n:
+                node.n = copy.deepcopy(node1.n)
+                node.d = node.n.d + 1
+            # checking for forks off node2 and not off node1
+            if node2.p and not node1.p:
+                node.p = copy.deepcopy(node2.p)
+                node.d = node.p.d + 1
+            if node2.n and not node1.n:
+                node.n = copy.deepcopy(node2.n)
+                node.d = node.n.d + 1
+            # If nothing caught a return statement, return False
+            if node.n or node.p:
+                return node
+            return False
+
+    return add_binary_diagrams_rec(dia1, dia2, {})
+
+
+def elementwise_multiply_diagrams(dia1, dia2, **options):
+    """
+    This method multiplies two diagrams element-wise, i.e. the MATLAB .* operation.
+    :param dia1:
+    :param dia2:
+    :return: a diagram representing the element-wise matrix product
+    """
+#    opt = convert_options(options)
+    def elementwise_multiply_diagrams_rec(node1, node2, found_leaves):
+        """
+        This function multiplies two subdiagrams specified by the respective root_node, node1/node2
+        """
+        # checking for the type of node:
+        # iff both diagrams are nodes
+        if node1.is_leaf() and node2.is_leaf():
+            value = node1.value*node2.value
+            if value in found_leaves:
+                return found_leaves[value]
+            leaf = node1.leaf_type(value, value)
+            found_leaves[value] = leaf
+            return leaf
+        else:
+            # checking for the cases in which a fork exists in both diagrams
+            node_p = node1.p and node2.p
+            node_n = node1.n and node2.n
+            if node_p or node_n:
+                node = type(node1)(node1.name, node1.null_value)
+                # checking for the positive fork:
+                if node_p:
+                    p_edge = elementwise_multiply_diagrams_rec(node1.p, node2.p, found_leaves)
+                    if p_edge:
+                        node.p = p_edge
+                        node.d = p_edge.d + 1
+                    else:
+                        return False
+                # checking for the negative fork:
+                if node_n:
+                    n_edge = elementwise_multiply_diagrams_rec(node1.n, node2.n, found_leaves)
+                    if n_edge:
+                        node.n = n_edge
+                        node.d = n_edge.d + 1
+                    else:
+                        return False
+                return node
+            else:
+                return False
+
+    return elementwise_multiply_diagrams_rec(dia1, dia2, {})
+
+
+def diagram_sum(node):
+    """
+    This function sums up all leaf-values of a  diagram disregarding any dimensionality
+    """
+    nsum = 0
+    for leaf in node.leaves:
+        nsum += leaf.value
+    return nsum
+
+
+def multiply_by_vector(mat_diagram, vec_diagram):
+    """
+    This function multiplies a matrix, represented by a diagram, with a vector, represented by a diagram.
+    General idea:
+    1. select the rows
+    2. multiply them with the vector (elementwise-multiplication)
+    3. add them up
+    :param mat_diagram: The diagram representing the matrix
+    :param vec_diagram: The diagram representing the vector
+    """
+    def multiply_bdiagram_by_vector_rec(matd, vecd):
+        """
+        The recursive function
+        """
+        if matd.d > vecd.d:
+            # still selecting rows:
+            node = type(matd)('', matd.d-vecd.d)
+            node.n = multiply_bdiagram_by_vector_rec(matd.n, vecd)
+            node.p = multiply_bdiagram_by_vector_rec(matd.p, vecd)
+            return node
+        else:
+            value = diagram_sum(elementwise_multiply_diagrams(matd, vecd))
+            leaf = matd.leaf_type(str(value), value)
+            return leaf
+
+
 if __name__ == "__main__":
+    import numpy as np
+    from diagram_initialization import initialize_diagram
     #mat1 = np.random.random_integers(0,5,[3,3])
     #mat2 = np.random.random_integers(-5,0,[3,3])
     mat1 = np.array([[1,2,0],[0,2,0],[0,2,1]])
     mat2 = np.array([[0,-2,0],[0,-2,0],[0,-2,-1]])
+    vec1 = np.array([1.0, 2.0, 3.0])
     diag1 = BNode('x0')
     diag2 = BNode('y0')
+    vecDiag = BNode('z')
+    initialize_diagram(vecDiag, vec1, 0)
     initialize_diagram(diag1, mat1, 0)
-    initialize_diagram(diag2, mat1, 0)
+    initialize_diagram(diag2, mat2, 0)
     print mat1
     print mat2
-    print mat1+mat2
-    diag3 = add_diagrams(diag1, diag2)
+    print mat1*mat2
+    diag3 = elementwise_multiply_diagrams(diag1, diag2)
+    print diag3.to_matrix(4, True)
+    print diag3.d
     #print diag3.to_matrix()
-    import code;code.interact(local=dict(locals().items() + globals().items()))
+    # import code; code.interact(local=dict(locals().items() + globals().items()))
     #a=BNode('hallo','x1')
     #b=BNode('hallo1','x2',p=a)
     #c=BNode('hallo1','x2',p=b)

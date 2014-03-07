@@ -40,107 +40,96 @@ def get_non_null_components(matrix, null_value, no_vars):
     """
     mat = matrix - np.ones(matrix.shape)*null_value
     # getting all non-null indices
-    row,col = np.nonzero(mat)
+    row, col = np.nonzero(mat)
     leaves = []
     indices = []
     # cycling through those indices
     for i in range(row.shape[0]):
         # converting the integer indices to boolean ones
-        r = re.sub('0b','',bin(row[i]))
-        c = re.sub('0b','',bin(col[i]))
-        ind = list('0'*(no_vars[1]-len(r)) +r+ '0'*(no_vars[2]-len(c))+c)
+        r = re.sub('0b', '', bin(row[i]))
+        c = re.sub('0b', '', bin(col[i]))
+        ind = list('0'*(no_vars[1]-len(r)) + r + '0'*(no_vars[2]-len(c))+c)
         indices.append(ind)
         # appending the according matrix entry
-        leaves.append(matrix[row[i],col[i]])
-    return np.array(indices,dtype=int),np.array(leaves)
+        leaves.append(matrix[row[i], col[i]])
+    return np.array(indices, dtype=int), np.array(leaves)
 
 
-def sort_variables(indices, variables):
-    """
-    This method sorts the variables of a given boolean function
-    DEPRECATED, should not be used
-    :param indices:
-    :param variables:
-    """
-    # the sorting is rather simple - it sorts by the order of variables having
-    # one value
-
-    # Sorting the variables by occurrances of 0 or 1, i.e. by "randomness"
-    order = np.argsort(np.maximum(np.sum(indices,axis=0),np.sum(np.logical_not(indices),axis=0)))
-    variables=np.array(variables)
-#    return indices.T[order].T,variables[order],order
-    return indices,variables,order
-
-
-def compute_diagram(node, boolMat, leaves, varNames, matSize):
+def compute_diagram(node, bool_mat, leaves, var_names, matSize):
     """
     This function computes a diagram from a given tree-object, a matrix
     containing all paths to non-null values in a boolean form, the according 
     leaves_array and the name of the variables.
     :param node:
-    :param boolMat:
+    :param bool_mat:
     :param leaves:
-    :param varNames:
+    :param var_names:
     :param matSize:
     """
     # concatenating the boolean matrix, the leaves_array and the variable names
     # to one large, and easier to handle, matrix
-    tmp_mat = np.append(varNames[None],boolMat,axis=0)
-    tmp_mat = np.append(tmp_mat,np.append([-1],leaves,axis=1)[None].T,axis=1)
+    print var_names
+    print bool_mat
+    print var_names.shape
+    print bool_mat.shape
+    tmp_mat = np.append(var_names[None], bool_mat, axis=0)
+    tmp_mat = np.append(tmp_mat, np.append([-1], leaves, axis=1)[None].T, axis=1)
     # calling the function which builds the tree recursively
-    append_nodes_recursively(node, tmp_mat)
+    append_nodes_recursively(node, tmp_mat, {})
+    node.d = node.p.d + 1
     return node
 
 
-def append_nodes_recursively(node, children):
+def append_nodes_recursively(node, child_matrix, found_leaves):
     """
     This function appends nodes to a given parent recursively, based on the 
     specifications given in the 'children' matrix
     :param node:
-    :param children:
+    :param child_matrix:
     """
-    from node import NoSuchNode
     # appending leaves_array
-    if children.shape[1] == 2:
-        for i in range(children.shape[0]-1):
+    if child_matrix.shape[1] == 2:
+        for i in range(child_matrix.shape[0]-1):
             # does the leave exist?
             # leaf = object
-            try:
-                leaf = node.get_leaf(children[i+1,1])
-            except NoSuchNode:
-                leaf = node.leaf_type(children[i+1,1], np.double(children[i+1,1]))
+            value = child_matrix[i+1, 1]
+            if value in found_leaves:
+                leaf = found_leaves[value]
+            else:
+                leaf = node.leaf_type(child_matrix[i+1, 1], np.double(child_matrix[i+1, 1]))
+                found_leaves[value] = leaf
             # deciding on the edge to the leave (false/pos)
-            if children[i+1, 0] == '0':
+            if child_matrix[i+1, 0] == '0':
                 node.n = leaf
-            if children[i+1, 0] == '1':
+            if child_matrix[i+1, 0] == '1':
                 node.p = leaf
         return leaf
     # appending nodes
     else:
         # dividing the matrix into the positive and the negative child-submatrices
-        pos_children = np.append(children[0, 1:][None], children[children[:, 0] == '1'][:, 1:], axis=0)
-        neg_children = np.append(children[0, 1:][None], children[children[:, 0] == '0'][:, 1:], axis=0)
+        pos_children = np.append(child_matrix[0, 1:][None], child_matrix[child_matrix[:, 0] == '1'][:, 1:], axis=0)
+        neg_children = np.append(child_matrix[0, 1:][None], child_matrix[child_matrix[:, 0] == '0'][:, 1:], axis=0)
         # creating the 'positive' subdiagram
         if pos_children.shape[0] > 1:
             # creating the name of the node, denoted by the path leading to it
-            node_name = children[0, 1]+'.'+node.name
+            node_name = child_matrix[0, 1]+'.'+node.name
             # adding the node
-            new_node = type(node)(node_name, children[0, 1])
+            new_node = type(node)(node_name, child_matrix.shape[1]-2)
             # adding the edge
             node.p = new_node
             # doing the recursive call
-            append_nodes_recursively(new_node, pos_children)
+            append_nodes_recursively(new_node, pos_children, found_leaves)
         # creating the 'negative' subdiagram
-        if neg_children.shape[0] >1:
+        if neg_children.shape[0] > 1:
             # creating the name of the node, denoted by the path leading to it
-            node_name = children[0, 1]+'.-'+node.name
+            node_name = child_matrix[0, 1]+'.-'+node.name
             # adding the node
-            new_node = type(node)(node_name, children[0, 1])
+            new_node = type(node)(node_name, child_matrix.shape[1]-2)
             # adding the edge
             node.n = new_node
             # doing the recursive call
-            append_nodes_recursively(new_node, neg_children)
-        return new_node
+            append_nodes_recursively(new_node, neg_children, found_leaves)
+
 
 def reduceDiagram(tree):
     return
@@ -155,13 +144,12 @@ def initialize_diagram(node, matrix, null_value):
     :return:
     """
     no_vars = get_req_vars(matrix)
-    matrix = expand_matrix2n(matrix,no_vars[1:],null_value)
+    matrix = expand_matrix2n(matrix, no_vars[1:], null_value)
     # constructing the tree
     # adding the nodes, named x0,x1,...xn, where n is the number of required vars
-    indices,leaves = get_non_null_components(matrix,null_value,no_vars)
+    indices, leaves = get_non_null_components(matrix, null_value, no_vars)
 
     var_names = get_var_names(no_vars[0])
     sorted_indices, sorted_variable_names, sorted_order = sort_variables(indices, var_names)
     compute_diagram(node, sorted_indices, leaves, sorted_variable_names, no_vars)
-    print no_vars
     return no_vars[1:], node

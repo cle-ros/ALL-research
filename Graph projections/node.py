@@ -6,6 +6,7 @@ Created on Thu Feb 13 14:23:43 2014
 """
 from diagram_initialization import initialize_diagram
 
+
 class Node(object):
     """
     The generic node class, which should not be used directly in most cases
@@ -14,13 +15,15 @@ class Node(object):
     """
     properties = {}
     
-    def __init__(self, denominator, nv=0, mat=None, var=None):
+    def __init__(self, denominator, depth=None, nv=0, mat=None, var=None):
         """        
         all required information are the name of the node
         :param mat:
         """
         self.name = denominator
+        self.d = depth
         self.child_nodes = {}
+        self.leaves_set = set()
         self.leaf_type = Leaf
         self.null_value = nv
         self.shape = (0, 0)
@@ -35,10 +38,9 @@ class Node(object):
         """
         if isinstance(child, Node):
             self.child_nodes[number] = child
-            if isinstance(child, Leaf):
-                self.leaves_array.append(child)
-            else:
-                self.leaves_array.extend(child.leaves_array)
+        elif isinstance(child, Leaf):
+            self.child_nodes[number] = child
+            self.leaves_set.add(child)
         else:
             raise Exception('Trying to add a non-node object as child node')
 
@@ -51,52 +53,67 @@ class Node(object):
         """
         # is the current node a leaf?
         if self.is_leaf():
-            return [self], self.value
+            return {self}
         # or does it already have leaf-entries?
-        elif not self.leaves_array is []:
-            return self.leaves_array
+        elif not self.leaves_set == set():
+            return self.leaves_set
         # if not, recursively return all children
         else:
-            children = []
+            childrens_leaves = set()
             for child in self.child_nodes:
-                children.extend(self.child_nodes[child].leaves_array)
+                childrens_leaves = childrens_leaves.union(self.child_nodes[child].leaves)
             # storing it for later use
-            self.leaves_array = children
-            return children
+            self.leaves_set = childrens_leaves
+            return childrens_leaves
 
     @leaves.setter
     def leaves(self, leaves_array):
         """
          The leaf - setter function.
         """
-        self.leaves_array = leaves_array
+        self.leaves_set = leaves_array
 
     def get_leaf(self, leaf):
         """
         This method returns a boolean value symbolizing whether the leaf is in the leaves_array
         """
         # do we have a node-object passed?
-        if isinstance(leaf, Node):
-            return leaf in self.leaves_array, leaf
+        if isinstance(leaf, Leaf):
+            if leaf in self.leaves:
+                return leaf
         # if not, look for the name/value
         else:
-            for leaf in self.leaves_array:
-                if leaf.value == leaf:
-                    return True, leaf
+            for known_leaf in self.leaves:
+                if known_leaf.value == leaf:
+                    return known_leaf
         #raise NoSuchNode('The leaf '+str(leaf)+' is not a leaf of node ' + self.name)
-        raise NoSuchNode('The leaf '+str(leaf)+' is not a leaf of node ' + self.name)
+        raise NoSuchNode('The object '+str(leaf)+' is not a leaf of node ' + self.name)
 
-    def has_child(self,node):
+    def reinitialize_leaves(self):
+        """
+        This method reinitializes the leaf-array in case some operation on the diagram changed it
+        :return: set of all leave nodes
+        """
+        # is the current node a leaf?
+        if self.is_leaf():
+            return {self}
+        # if not, recursively return all children
+        else:
+            childrens_leaves = set()
+            for child in self.child_nodes:
+                childrens_leaves = childrens_leaves.union(self.child_nodes[child].leaves)
+            # storing it for later use
+            self.leaves_set = childrens_leaves
+            return childrens_leaves
+
+    def is_child(self, node):
         """
         This function checks whether a node already is a child of the given node
         """
         if isinstance(node, Node):
-            if node in self.child_nodes.values():
-                return True
-            else:
-                return False
+            return node in self.child_nodes.values()
         else:
-            raise Exception('Unrecognized node-reference')
+            raise NoSuchNode('Unrecognized node-reference')
 
     def remove_child(self, node):
         """
@@ -112,86 +129,107 @@ class Node(object):
         """
         This function checks whether the current node is a leaf node
         """
-        if isinstance(self, Leaf):
-            print 'isleaf'
-            print self.value
-            return True
-        else:
-            return False
+        return isinstance(self, Leaf)
 
 
 class BNode(Node):
     """
     This class extends Node for binary graphs
     """
-    def __init__(self, denominator, nv=0, mat=None, var=None):
+    def __init__(self, denominator, depth=None, nv=0, mat=None, var=None):
         """
 
         :param mat:
         denominator:    the name of the node (str)
         variable:       the variable represented by the node (str)
         """
-        Node.__init__(self, denominator, nv, mat, var)
+        Node.__init__(self, denominator, depth, nv, mat, var)
         self.leaf_type = BLeaf
 
-    # a @property for easy navigation in binary diagrams
     @property
     def p(self):
+        """
+        A property for the positive fork, for easier access to the only forks available
+        :return:
+        """
         if 1 in self.child_nodes:
             return self.child_nodes[1]
         else:
             return False
+
     @p.setter
     def p(self, child):
+        """
+        A setter for the positive fork, for easier access to the only forks available
+        :param child:
+        """
         Node.add_child(self, child, 1)
-    # a @property for easy navigation in binary diagrams
+
     @property
     def n(self):
+        """
+        A property for the negative fork, for easier access to the only forks available
+        :return:
+        """
         if 0 in self.child_nodes:
             return self.child_nodes[0]
         else:
             return False
+
     @n.setter
     def n(self, child):
+        """
+        A setter for the positive fork, for easier access to the only forks available
+        :param child:
+        """
         Node.add_child(self, child, 0)
 
-    def to_matrix(self):
+    def to_matrix(self, rows=1, cropping=False):
         """
         This method returns the matrix represented by the diagram
+        :param rows:
+        :param cropping:
         """
         import numpy as np
-        def to_mat_rec(node, depth, shape, nv):
+
+        def to_mat_rec(node, nv):
             # making sure the node exists
             if not node:
-                return None
+                return None, 0
             # checking whether the node is a leaf
             if node.is_leaf():
-                print node.value
-                return np.array(node.value)[None]
+                return np.array(node.value)[None], 1
             else:
                 # the recursive call
-                nfork = to_mat_rec(node.n, depth+1, shape, nv)
-                pfork = to_mat_rec(node.p, depth+1, shape, nv)
+                nfork, n_cshape = to_mat_rec(node.n, nv)
+                pfork, p_cshape = to_mat_rec(node.p, nv)
                 # getting the size for a missing fork
-                try:
-                    shape = nfork.shape
-                except AttributeError:
-                    shape = pfork.shape
-                print shape
+                mat_shape = 2*max(n_cshape, p_cshape)
                 if pfork is None:
-                    pfork = np.ones(shape)*nv
+                    pfork = np.ones(n_cshape)*nv
                 if nfork is None:
-                    nfork = np.ones(shape)*nv
+                    nfork = np.ones(p_cshape)*nv
                 # deciding whether the matrices shall be horizontally or vertically concatenated
-                if depth > shape:
-                    print 'concatenating horizontally'
-                    print nfork
-                    print pfork
-                    return np.concatenate((nfork, pfork))
-                else:
-                    print 'concatenating vertically'
-                    return np.array([nfork, pfork])
-        return to_mat_rec(self, 0, self.shape, self.null_value)
+                return np.concatenate((nfork, pfork), 1), mat_shape
+        result, shape = to_mat_rec(self, self.null_value)
+        rows = 2**np.ceil(np.log2(rows))
+        result = np.reshape(result, (rows, shape/rows))
+        # if desired, crop the result of all zero columns/rows in the lower right
+        if cropping and not rows == 1:
+            uncropped = True
+            while uncropped:
+                uncropped = False
+                if (result[:, -1] == 0).all():
+                    result = result[:, :-1]
+                    uncropped = True
+                if (result[-1, :] == 0).all():
+                    result = result[:-1, :]
+                    uncropped = True
+        return result
+
+    @property
+    def m(self):
+        return self.to_matrix()
 
 
 class Leaf(Node):
@@ -204,7 +242,7 @@ class Leaf(Node):
         :param denominator:
         :param val:
         """
-        Node.__init__(self, denominator)
+        Node.__init__(self, denominator, 0)
         self.child_nodes = None
         self.value = val
         self.shape = [1, 1]
