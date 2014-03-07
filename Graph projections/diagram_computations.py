@@ -244,7 +244,7 @@ def diagram_sum(node):
     return nsum
 
 
-def multiply_by_vector(mat_diagram, vec_diagram):
+def multiply_by_column_vector(mat_diagram, vec_diagram):
     """
     This function multiplies a matrix, represented by a diagram, with a vector, represented by a diagram.
     General idea:
@@ -261,13 +261,17 @@ def multiply_by_vector(mat_diagram, vec_diagram):
         if matd.d > vecd.d:
             # still selecting rows:
             node = type(matd)('', matd.d-vecd.d)
-            node.n = multiply_bdiagram_by_vector_rec(matd.n, vecd)
-            node.p = multiply_bdiagram_by_vector_rec(matd.p, vecd)
+            if matd.n:
+                node.n = multiply_bdiagram_by_vector_rec(matd.n, vecd)
+            if matd.p:
+                node.p = multiply_bdiagram_by_vector_rec(matd.p, vecd)
             return node
         else:
+            # if a row is selected, compute the scalar-product (sum of .*)
             value = diagram_sum(elementwise_multiply_diagrams(matd, vecd))
             leaf = matd.leaf_type(str(value), value)
             return leaf
+    return multiply_bdiagram_by_vector_rec(mat_diagram, vec_diagram)
 
 
 if __name__ == "__main__":
@@ -275,20 +279,23 @@ if __name__ == "__main__":
     from diagram_initialization import initialize_diagram
     #mat1 = np.random.random_integers(0,5,[3,3])
     #mat2 = np.random.random_integers(-5,0,[3,3])
-    mat1 = np.array([[1,2,0],[0,2,0],[0,2,1]])
+    mat1 = np.array([[1,2,0],[0,2,0],[0,2,1],[1,2,0]])
     mat2 = np.array([[0,-2,0],[0,-2,0],[0,-2,-1]])
     vec1 = np.array([1.0, 2.0, 3.0])
-    diag1 = BNode('x0')
-    diag2 = BNode('y0')
+    diag1 = BNode('x')
+    diag2 = BNode('y')
     vecDiag = BNode('z')
     initialize_diagram(vecDiag, vec1, 0)
     initialize_diagram(diag1, mat1, 0)
     initialize_diagram(diag2, mat2, 0)
     print mat1
-    print mat2
-    print mat1*mat2
-    diag3 = elementwise_multiply_diagrams(diag1, diag2)
+    print vec1[None].T
+#    print 'buh'
+    diag3 = multiply_by_column_vector(diag1, vecDiag)
+    # diag3 = elementwise_multiply_diagrams(diag1, diag2)
+    print 'lala'
     print diag3.to_matrix(4, True)
+    print 'hi'
     print diag3.d
     #print diag3.to_matrix()
     # import code; code.interact(local=dict(locals().items() + globals().items()))

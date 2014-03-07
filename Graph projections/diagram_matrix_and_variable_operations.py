@@ -31,26 +31,26 @@ def get_req_vars(mat):
     """
     # checking the matrix dimension
     # 1. getting a binary representation of the shape
-    vSize = np.ceil(np.log2(mat.shape[0]))
+    v_size = np.ceil(np.log2(mat.shape[0]))
     try:
-        hSize = np.ceil(np.log2(mat.shape[1]))
+        h_size = np.ceil(np.log2(mat.shape[1]))
     except IndexError:
-        hSize = 0
-    dim = max([int(vSize), int(hSize)])
+        h_size = 0
+    dim = max([int(v_size), int(h_size)])
     # 2. computing the number of variables required for a matrix of this size
-    return [2 * dim, vSize, hSize]
+    return [v_size + h_size, v_size, h_size]
 
 
-def expand_matrix2n(matrix, demSize, nullValue):
+def expand_matrix2n(matrix, demanded_size, null_value):
     """
     this function expands a given matrix to be of size 2^n x 2^m, filling the
     unknown values with the specified nullValue
     :param matrix:
-    :param demSize:
-    :param nullValue:
-    :return:
+    :param demanded_size:
+    :param null_value: The null value
+    :return: The full 2^nx2^m matrix
     """
-    mat = np.ones([2**demSize[0], 2**demSize[1]]) * nullValue
+    mat = np.ones([2**demanded_size[0], 2**demanded_size[1]]) * null_value
     try:
         mat[0:matrix.shape[0], 0:matrix.shape[1]] = matrix
     except IndexError:
@@ -59,13 +59,13 @@ def expand_matrix2n(matrix, demSize, nullValue):
 
 
 # this function computes the names of the boolean variables    
-def get_var_names(noVars):
+def get_var_names(no_vars, name):
     """
     This funtion converts a number of required variables to a list of variable names, i.e. x1, x2, ...
-    :param noVars:
+    :param no_vars:
     :return:
     """
-    varNames = []
-    for i in range(int(noVars)):
-        varNames.append('x'+str(i+1))
-    return varNames
+    var_names = []
+    for i in range(int(no_vars)):
+        var_names.append(name + str(i+1))
+    return var_names

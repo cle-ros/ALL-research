@@ -15,7 +15,7 @@ class Node(object):
     """
     properties = {}
     
-    def __init__(self, denominator, depth=None, nv=0, mat=None, var=None):
+    def __init__(self, denominator, depth=None, nv=0, mat=None, var='x'):
         """        
         all required information are the name of the node
         :param mat:
@@ -30,7 +30,7 @@ class Node(object):
         if not var is None:
             self.variable = var
         if not mat is None:
-            self.shape = initialize_diagram(self, mat, nv)
+            self.shape = initialize_diagram(self, mat, nv, var)
 
     def add_child(self, child, number):
         """        

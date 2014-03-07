@@ -43,16 +43,37 @@ def get_non_null_components(matrix, null_value, no_vars):
     row, col = np.nonzero(mat)
     leaves = []
     indices = []
+    is_vector = np.sum(col) == 0
     # cycling through those indices
     for i in range(row.shape[0]):
         # converting the integer indices to boolean ones
         r = re.sub('0b', '', bin(row[i]))
-        c = re.sub('0b', '', bin(col[i]))
-        ind = list('0'*(no_vars[1]-len(r)) + r + '0'*(no_vars[2]-len(c))+c)
+        if is_vector:
+            ind = list('0'*(no_vars[1]-len(r)) + r)
+        else:
+            c = re.sub('0b', '', bin(col[i]))
+            ind = list('0'*(no_vars[1]-len(r)) + r + '0'*(no_vars[2]-len(c))+c)
         indices.append(ind)
         # appending the according matrix entry
         leaves.append(matrix[row[i], col[i]])
     return np.array(indices, dtype=int), np.array(leaves)
+
+
+def sort_variables(indices, variables):
+    """
+    This method sorts the variables of a given boolean function
+    DEPRECATED, should not be used
+    :param indices:
+    :param variables:
+    """
+    # the sorting is rather simple - it sorts by the order of variables having
+    # one value
+
+    # Sorting the variables by occurrences of 0 or 1, i.e. by "randomness"
+    order = np.argsort(np.maximum(np.sum(indices, axis=0), np.sum(np.logical_not(indices), axis=0)))
+    variables = np.array(variables)
+#    return indices.T[order].T,variables[order],order
+    return indices, variables, order
 
 
 def compute_diagram(node, bool_mat, leaves, var_names, matSize):
@@ -68,10 +89,6 @@ def compute_diagram(node, bool_mat, leaves, var_names, matSize):
     """
     # concatenating the boolean matrix, the leaves_array and the variable names
     # to one large, and easier to handle, matrix
-    print var_names
-    print bool_mat
-    print var_names.shape
-    print bool_mat.shape
     tmp_mat = np.append(var_names[None], bool_mat, axis=0)
     tmp_mat = np.append(tmp_mat, np.append([-1], leaves, axis=1)[None].T, axis=1)
     # calling the function which builds the tree recursively
@@ -134,7 +151,7 @@ def append_nodes_recursively(node, child_matrix, found_leaves):
 def reduceDiagram(tree):
     return
 
-def initialize_diagram(node, matrix, null_value):
+def initialize_diagram(node, matrix, null_value, var_string='x'):
     # getting the number of required vars
     """
     Initializing the diagram, wrapping around compute_diagram
@@ -149,7 +166,7 @@ def initialize_diagram(node, matrix, null_value):
     # adding the nodes, named x0,x1,...xn, where n is the number of required vars
     indices, leaves = get_non_null_components(matrix, null_value, no_vars)
 
-    var_names = get_var_names(no_vars[0])
+    var_names = get_var_names(no_vars[0], var_string)
     sorted_indices, sorted_variable_names, sorted_order = sort_variables(indices, var_names)
     compute_diagram(node, sorted_indices, leaves, sorted_variable_names, no_vars)
     return no_vars[1:], node
