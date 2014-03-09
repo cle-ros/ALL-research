@@ -1,18 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Feb  3 18:25:35 2014
-
-@author: clemens
+@author: Clemens Rosenbaum (cgbr@cs.umass.edu)
 """
-
-
-#import matplotlib.pyplot as plt
 
 import numpy as np
 import re
-
-# from diagram import Diagram
-from diagram_matrix_and_variable_operations import *
+from diagram_matrix_and_variable_operations import get_req_vars, get_var_names, expand_matrix2n
 
 
 def get_conjunctions(leaves):
@@ -93,7 +86,10 @@ def compute_diagram(node, bool_mat, leaves, var_names, matSize):
     tmp_mat = np.append(tmp_mat, np.append([-1], leaves, axis=1)[None].T, axis=1)
     # calling the function which builds the tree recursively
     append_nodes_recursively(node, tmp_mat, {})
-    node.d = node.p.d + 1
+    if node.p:
+        node.d = node.p.d + 1
+    else:
+        node.d = node.n.d + 1
     return node
 
 
@@ -104,11 +100,11 @@ def append_nodes_recursively(node, child_matrix, found_leaves):
     :param node:
     :param child_matrix:
     """
+    # TODO: begin from the leaves, for a more efficient diagram structure
     # appending leaves_array
     if child_matrix.shape[1] == 2:
         for i in range(child_matrix.shape[0]-1):
             # does the leave exist?
-            # leaf = object
             value = child_matrix[i+1, 1]
             if value in found_leaves:
                 leaf = found_leaves[value]
@@ -160,6 +156,7 @@ def initialize_diagram(node, matrix, null_value, var_string='x'):
     :param null_value:
     :return:
     """
+    #TODO: clean up!
     no_vars = get_req_vars(matrix)
     matrix = expand_matrix2n(matrix, no_vars[1:], null_value)
     # constructing the tree

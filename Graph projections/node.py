@@ -131,6 +131,27 @@ class Node(object):
         """
         return isinstance(self, Leaf)
 
+    def get_subdiagrams(self, depth):
+        """
+        This method returns all subdiagrams of a specified level as a list
+        :param depth:
+        :return:
+        """
+        subdiagrams = []
+        def get_sds_rec(node, sds, level, cur_level):
+            if level == cur_level:
+                sds.append(node)
+            else:
+                # the children have to be sorted for some usages
+                children = []
+                for child in node.child_nodes.keys():
+                    children.append(child)
+                children.sort()
+                for child in children:
+                    get_sds_rec(node.child_nodes[child], sds, level, cur_level+1)
+        get_sds_rec(self, subdiagrams, depth, 0)
+        return subdiagrams
+
 
 class BNode(Node):
     """
@@ -170,6 +191,7 @@ class BNode(Node):
         """
         A property for the negative fork, for easier access to the only forks available
         :return:
+        :type return: BNode
         """
         if 0 in self.child_nodes:
             return self.child_nodes[0]
@@ -254,7 +276,15 @@ class Leaf(Node):
         :param number:
         :raise Exception:
         """
-        raise Exception('[ERROR] Trying to add a child to a leaf node.')
+        raise TerminalNode('Trying to add a child to a leaf node.')
+
+    def to_matrix(self, shape=(1, 1), resize=False):
+        """
+        Returns the value of the leaf in numpy-matrix form
+        """
+        print('This is a leaf. The shape ('+str(shape)+') and resize ('+str(resize)+') parameters are ignored')
+        import numpy as np
+        return np.array(self.value)
 
 
 class BLeaf(Leaf):
@@ -270,5 +300,10 @@ class NoSuchNode(Exception):
     A slightly more fitting Exception for this usecase :-)
     """
     pass
-    #def __init__(self, message):
-    #    Exception.__init__(self, message)
+
+
+class TerminalNode(Exception):
+    """
+    A slightly more fitting Exception for this usecase :-)
+    """
+    pass

@@ -1,10 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Feb  3 18:26:54 2014
-
-@author: clemens
+@author: Clemens Rosenbaum (cgbr@cs.umass.edu)
 """
-import re
 import numpy as np
 
 #import networks as nx
@@ -18,7 +15,7 @@ def flatten_matrix(matrix):
     :return:
     """
     if len(matrix.shape) > 2:
-        print 'Please reduce matrix to be 2-dimensional. Aborting'
+        print('Please reduce matrix to be 2-dimensional. Aborting')
         return
     return matrix
 
@@ -36,7 +33,6 @@ def get_req_vars(mat):
         h_size = np.ceil(np.log2(mat.shape[1]))
     except IndexError:
         h_size = 0
-    dim = max([int(v_size), int(h_size)])
     # 2. computing the number of variables required for a matrix of this size
     return [v_size + h_size, v_size, h_size]
 
@@ -50,6 +46,7 @@ def expand_matrix2n(matrix, demanded_size, null_value):
     :param null_value: The null value
     :return: The full 2^nx2^m matrix
     """
+    # TODO: maybe the resulting matrix should be squared, to "fill up" the remaining space with an identity matrix
     mat = np.ones([2**demanded_size[0], 2**demanded_size[1]]) * null_value
     try:
         mat[0:matrix.shape[0], 0:matrix.shape[1]] = matrix
@@ -61,7 +58,7 @@ def expand_matrix2n(matrix, demanded_size, null_value):
 # this function computes the names of the boolean variables    
 def get_var_names(no_vars, name):
     """
-    This funtion converts a number of required variables to a list of variable names, i.e. x1, x2, ...
+    This function converts a number of required variables to a list of variable names, i.e. x1, x2, ...
     :param no_vars:
     :return:
     """

@@ -5,8 +5,8 @@ Created on Fri Feb 14 13:11:22 2014
 @author: clemens
 """
 import copy
-# from diagram import *
 from node import Node, BNode
+from diagram_initialization import append_nodes_recursively, get_var_names
 
 
 def diagram_shallow_copy(node):
@@ -44,18 +44,12 @@ def create_target_diagram(dia1, dia2, **options):
         else:
             raise Exception('Cannot create the resulting diagram in the place of '+options['in_place'])
 
-    # making sure the two diagrams each have the same shape
-#    if not dia1.shape == dia2.shape:
-#        raise Exception('Can only add two diagrams if the underlying data is of the same dimensionality.')
-
     # checking for the same nullValue
     if not dia1.null_value == dia2.null_value and not null_value is None:
         raise Exception('The null-value of the two graphs differ. Adjust the null-value of one of the graphs first or '
                         'force an override with the null_value option.')
 
-    result = object
     if in_place:
-        result = in_place
         in_place.nodes = {}
         in_place.leaves = {}
         in_place.root = None
@@ -84,37 +78,15 @@ def get_subdiagrams(diagram, n):
     :param n:
     """
     subdiags = []
+
     def get_subdiags_rec(node, level):
         # a nested function for the recursive call
         if level == n:
             subdiags.append(diagram)
         else:
             for child in node.child_nodes:
-                get_subdiags_rec(node.child_nodes[child])
+                get_subdiags_rec(node.child_nodes[child], level-1)
     return subdiags
-
-
-def transpose_diagram(diagram):
-    """
-    This transposes the underlying matrix. The basic operation is to exchange the horizontal with the vertical variables,
-    or, in diagram-terms, to exchange the upper half of the diagram representing the vertical variables with the lower
-    half, representing the horizontal variables.
-    :param diagram:
-    """
-    result = create_target_diagram(diag1, diag1)
-    steps_down = diagram.shape[0]
-    subdiagrams = get_subdiagrams(diagram.root, steps_down-1)
-    #UNFINISHED
-    return
-
-
-def multiply_diagram(diag1, diag2, **options):
-    """
-    This function multiplies two diagrams by the logic of the matrix multiplication
-    """
-    result = create_target_diagram(diag1, diag2, **options)
-    #UNFINISHED
-    return
 
 
 def add_diagrams(dia1, dia2):
@@ -268,10 +240,121 @@ def multiply_by_column_vector(mat_diagram, vec_diagram):
             return node
         else:
             # if a row is selected, compute the scalar-product (sum of .*)
-            value = diagram_sum(elementwise_multiply_diagrams(matd, vecd))
+            mult_diags = elementwise_multiply_diagrams(matd, vecd)
+            if mult_diags:
+                value = diagram_sum(elementwise_multiply_diagrams(matd, vecd))
+            else:
+                value = 0
             leaf = matd.leaf_type(str(value), value)
             return leaf
     return multiply_bdiagram_by_vector_rec(mat_diagram, vec_diagram)
+
+
+def decompose_paths(node):
+    """
+    This function decomposes a diagram into the set of its paths from root to leaves
+    :param node:
+    """
+    def decompose_paths_rec(node_inner, path):
+        """
+        This function does the recursive path of the decomposition
+        :param node_inner:
+        :param path:
+        """
+        if node_inner.is_leaf():
+            path = np.append(path, str(node_inner.value))
+            return path[None]
+        else:
+            paths = np.array([])
+            if node_inner.p:
+                new_path = np.append(path, '1')
+                p_paths = decompose_paths_rec(node_inner.p, new_path)
+                paths = np.append(paths, p_paths)
+            if node_inner.n:
+                new_path = np.append(path, '0')
+                n_paths = decompose_paths_rec(node_inner.n, new_path)
+                paths = np.append(paths, n_paths)
+        return paths
+
+    decomposition = decompose_paths_rec(node, np.array([]))
+    return decomposition.reshape((decomposition.shape[0]/(node.d+1), node.d+1))
+
+
+def transpose_diagram(diagram, rows=None):
+    """
+    This transposes the underlying matrix. The basic operation is to exchange the horizontal with the vertical variables,
+    or, in diagram-terms, to exchange the upper half of the diagram representing the vertical variables with the lower
+    half, representing the horizontal variables.
+    :param diagram:
+    """
+    if rows is None:
+        rows1 = diagram.shape[0]
+    else:
+        rows1 = np.ceil(np.log2(rows))
+    paths = decompose_paths(diagram)
+    new_paths = np.hstack((paths[:, rows1:-1], paths[:, :rows1], paths[:, -1][None].T))
+    # TODO: clean up the diagram creation code, and remove redundancies
+    node = type(diagram)('x')
+    node.null_value = diagram.null_value
+    var_names = np.append(get_var_names(new_paths.shape[1]-1, 'x'), '-1')
+    tmp_mat = np.vstack((var_names, new_paths))
+    append_nodes_recursively(node, tmp_mat, {})
+    if node.p:
+        node.d = node.p.d + 1
+    else:
+        node.d = node.n.d + 1
+    return node
+
+
+def multiply_diagram(diag1, diag2, width, transpose=True):
+    """
+    This function multiplies two diagrams by the logic of the matrix multiplication
+    """
+    assert isinstance(diag1, Node)
+    assert isinstance(diag2, Node)
+    if transpose:
+        diag3 = transpose_diagram(diag2, width)
+    else:
+        diag3 = diag2
+
+    def multiply_bdiagram_rec(node1, node2, w):
+        """
+        The recursive function for multiplying two MTBDDs
+        :param node1: the first diagram
+        :param node2: the second diagram
+        :param w: the width of the matrix, in 2^n
+        :return: their product
+        """
+        if node1.d == w+1:
+            # selected rows of node1
+            node = type(node1)('x')
+            # multiplying rows by the other diagram
+            if node1.n:
+                n_edge = multiply_by_column_vector(node2, node1.n)
+                if n_edge:
+                    node.n = n_edge
+            if node1.p:
+                p_edge = multiply_by_column_vector(node2, node1.p)
+                if p_edge:
+                    node.p = p_edge
+            if n_edge or p_edge:
+                return node
+            else:
+                return False
+        elif node1.d > w+1:
+            # if row-blocks are selected, go further down
+            node = type(node1)('x')
+            p_edge = multiply_bdiagram_rec(node1.p, node2, w)
+            n_edge = multiply_bdiagram_rec(node1.n, node2, w)
+            if p_edge:
+                node.p = p_edge
+            if n_edge:
+                node.n = n_edge
+            return node
+        else:
+            return False
+
+    return multiply_bdiagram_rec(diag1, diag3, np.ceil(np.log2(width)))
 
 
 if __name__ == "__main__":
@@ -279,24 +362,29 @@ if __name__ == "__main__":
     from diagram_initialization import initialize_diagram
     #mat1 = np.random.random_integers(0,5,[3,3])
     #mat2 = np.random.random_integers(-5,0,[3,3])
-    mat1 = np.array([[1,2,0],[0,2,0],[0,2,1],[1,2,0]])
-    mat2 = np.array([[0,-2,0],[0,-2,0],[0,-2,-1]])
+    mat1 = np.array([[1, 2, 0], [0, 3, 0], [0, 4, 1], [1, 5, 0], [1, 5, 0], [1, 5, 0], [1, 5, 0]])
+    mat2 = np.array([[1, -2, 0], [2, -3, 0], [3, -4, -1]])
     vec1 = np.array([1.0, 2.0, 3.0])
+    vec2 = np.array([2.0, 3.0, 4.0])
     diag1 = BNode('x')
     diag2 = BNode('y')
-    vecDiag = BNode('z')
-    initialize_diagram(vecDiag, vec1, 0)
+    vecDiag1 = BNode('z')
+    vecDiag2 = BNode('a')
+    initialize_diagram(vecDiag1, vec1, 0)
+    initialize_diagram(vecDiag2, vec2, 0)
     initialize_diagram(diag1, mat1, 0)
     initialize_diagram(diag2, mat2, 0)
-    print mat1
-    print vec1[None].T
 #    print 'buh'
-    diag3 = multiply_by_column_vector(diag1, vecDiag)
+    diag3 = multiply_diagram(diag1, diag2, 3)
     # diag3 = elementwise_multiply_diagrams(diag1, diag2)
-    print 'lala'
-    print diag3.to_matrix(4, True)
-    print 'hi'
-    print diag3.d
+    print('lala')
+    print diag1.to_matrix(3, False)
+    print transpose_diagram(diag2, 3).to_matrix(3, False)
+    print('correct result')
+    print np.dot(mat1, mat2)
+    print (diag3.to_matrix(7, False))
+#    print('hi')
+#    print(diag3.d)
     #print diag3.to_matrix()
     # import code; code.interact(local=dict(locals().items() + globals().items()))
     #a=BNode('hallo','x1')
