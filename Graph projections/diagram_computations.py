@@ -7,6 +7,7 @@ Created on Fri Feb 14 13:11:22 2014
 import copy
 from node import Node, BNode
 from diagram_initialization import append_nodes_recursively, get_var_names
+import numpy as np
 
 
 def diagram_shallow_copy(node):
@@ -15,7 +16,6 @@ def diagram_shallow_copy(node):
     I.e. the result will have the same shape
     """
     new_node = type(node)(node.name, node.null_value)
-#    new_node.shape = node.shape
     return new_node
 
 
@@ -57,6 +57,7 @@ def create_target_diagram(dia1, dia2, **options):
     else:
         result = diagram_shallow_copy(dia1)
     return result
+
 
 def scalar_multiply_diagram(diagram, scalar):
     """
@@ -172,6 +173,7 @@ def elementwise_multiply_diagrams(dia1, dia2, **options):
         # iff both diagrams are nodes
         if node1.is_leaf() and node2.is_leaf():
             value = node1.value*node2.value
+            # making sure that leaves are not added multiple times
             if value in found_leaves:
                 return found_leaves[value]
             leaf = node1.leaf_type(value, value)
@@ -183,25 +185,24 @@ def elementwise_multiply_diagrams(dia1, dia2, **options):
             node_n = node1.n and node2.n
             if node_p or node_n:
                 node = type(node1)(node1.name, node1.null_value)
+                succ = False
                 # checking for the positive fork:
                 if node_p:
                     p_edge = elementwise_multiply_diagrams_rec(node1.p, node2.p, found_leaves)
                     if p_edge:
                         node.p = p_edge
                         node.d = p_edge.d + 1
-                    else:
-                        return False
+                        succ = True
                 # checking for the negative fork:
                 if node_n:
                     n_edge = elementwise_multiply_diagrams_rec(node1.n, node2.n, found_leaves)
                     if n_edge:
                         node.n = n_edge
                         node.d = n_edge.d + 1
-                    else:
-                        return False
-                return node
-            else:
-                return False
+                        succ = True
+                if succ:
+                    return node
+            return False
 
     return elementwise_multiply_diagrams_rec(dia1, dia2, {})
 
@@ -230,21 +231,34 @@ def multiply_by_column_vector(mat_diagram, vec_diagram):
         """
         The recursive function
         """
+        try:
+            matd.d == False
+        except AttributeError:
+            raise AttributeError
         if matd.d > vecd.d:
             # still selecting rows:
             node = type(matd)('', matd.d-vecd.d)
+            succ = False
             if matd.n:
-                node.n = multiply_bdiagram_by_vector_rec(matd.n, vecd)
+                n_edge = multiply_bdiagram_by_vector_rec(matd.n, vecd)
+                if n_edge:
+                    node.n = n_edge
+                    succ = True
             if matd.p:
-                node.p = multiply_bdiagram_by_vector_rec(matd.p, vecd)
-            return node
+                p_edge = multiply_bdiagram_by_vector_rec(matd.p, vecd)
+                if p_edge:
+                    node.p = p_edge
+                    succ = True
+            if succ:
+                return node
+            return False
         else:
             # if a row is selected, compute the scalar-product (sum of .*)
             mult_diags = elementwise_multiply_diagrams(matd, vecd)
             if mult_diags:
                 value = diagram_sum(elementwise_multiply_diagrams(matd, vecd))
             else:
-                value = 0
+                return False
             leaf = matd.leaf_type(str(value), value)
             return leaf
     return multiply_bdiagram_by_vector_rec(mat_diagram, vec_diagram)
@@ -255,6 +269,8 @@ def decompose_paths(node):
     This function decomposes a diagram into the set of its paths from root to leaves
     :param node:
     """
+    if node.p is False and node.n is False:
+        return []
     def decompose_paths_rec(node_inner, path):
         """
         This function does the recursive path of the decomposition
@@ -287,6 +303,8 @@ def transpose_diagram(diagram, rows=None):
     half, representing the horizontal variables.
     :param diagram:
     """
+    if diagram.p is False and diagram.n is False:
+        return copy.copy(diagram)
     if rows is None:
         rows1 = diagram.shape[0]
     else:
@@ -306,14 +324,14 @@ def transpose_diagram(diagram, rows=None):
     return node
 
 
-def multiply_diagram(diag1, diag2, width, transpose=True):
+def multiply_diagram(diag1, diag2, height, transpose=True):
     """
     This function multiplies two diagrams by the logic of the matrix multiplication
     """
     assert isinstance(diag1, Node)
     assert isinstance(diag2, Node)
     if transpose:
-        diag3 = transpose_diagram(diag2, width)
+        diag3 = transpose_diagram(diag2, height)
     else:
         diag3 = diag2
 
@@ -329,35 +347,93 @@ def multiply_diagram(diag1, diag2, width, transpose=True):
             # selected rows of node1
             node = type(node1)('x')
             # multiplying rows by the other diagram
+            succ = False
             if node1.n:
                 n_edge = multiply_by_column_vector(node2, node1.n)
                 if n_edge:
                     node.n = n_edge
+                    succ = True
             if node1.p:
                 p_edge = multiply_by_column_vector(node2, node1.p)
                 if p_edge:
                     node.p = p_edge
-            if n_edge or p_edge:
+                    succ = True
+            if succ:
                 return node
             else:
                 return False
         elif node1.d > w+1:
             # if row-blocks are selected, go further down
             node = type(node1)('x')
-            p_edge = multiply_bdiagram_rec(node1.p, node2, w)
-            n_edge = multiply_bdiagram_rec(node1.n, node2, w)
-            if p_edge:
-                node.p = p_edge
-            if n_edge:
-                node.n = n_edge
-            return node
+            succ = False
+            if node1.p:
+                p_edge = multiply_bdiagram_rec(node1.p, node2, w)
+                if p_edge:
+                    node.p = p_edge
+                    succ = True
+            if node1.n:
+                n_edge = multiply_bdiagram_rec(node1.n, node2, w)
+                if n_edge:
+                    node.n = n_edge
+                    succ = True
+            if succ:
+                return node
+            else:
+                return False
         else:
             return False
+    result = multiply_bdiagram_rec(diag1, diag3, np.ceil(np.log2(height)))
+    if not result:
+        result = type(diag1)('x')
+    return result
 
-    return multiply_bdiagram_rec(diag1, diag3, np.ceil(np.log2(width)))
+
+def test_multiplication(number, max_size, sparsity):
+    """
+    This function just computes many, many diagram multiplications and checks them
+    against the "correct" value.
+    :param number:
+    :param max_size:
+    :param sparsity:
+    :return:
+    """
+    misses = []
+    from diagram_initialization import initialize_diagram, expand_matrix2n
+    for i in range(number):
+        # creating the sizes of the matrices
+        size_first = [np.random.random_integers(2, max_size, 1)[0], np.random.random_integers(2, max_size, 1)[0]]
+        size_second = [size_first[1], np.random.random_integers(2, max_size, 1)[0]]
+        # creating the random matrices
+        mat1 = np.random.rand(size_first[0], size_first[1])*2-1
+        mat2 = np.random.rand(size_second[0], size_second[1])*2-1
+        # adding sparsity
+        spars1 = np.round(np.random.rand(size_first[0], size_first[1]) * 0.5/sparsity)
+        spars2 = np.round(np.random.rand(size_second[0], size_second[1]) * 0.5/sparsity)
+        mat1 = mat1*spars1
+        mat2 = mat2*spars2
+        # creating the diagrams
+        diag1 = BNode('x')
+        diag2 = BNode('y')
+        initialize_diagram(diag1, mat1, 0)
+        initialize_diagram(diag2, mat2, 0)
+        # computing the multiplication
+        result = multiply_diagram(diag1, diag2, mat1.shape[1])
+        result_mat = result.to_matrix(mat1.shape[0], False)
+        if not (result_mat == [0]).all():
+            reference_result = expand_matrix2n(np.dot(mat1, mat2), np.log2(result_mat.shape), 0)
+            diff = np.max(np.abs(reference_result - result_mat))
+            if not diff < 1e-10:
+                import code; code.interact(local=dict(locals().items() + globals().items()))
+                problematic_mats = [mat1, mat2]
+                misses.append(problematic_mats)
+        else:
+            if np.max(np.abs(np.dot(mat1, mat2))) > 0:
+                problematic_mats = [mat1, mat2]
+                misses.append([problematic_mats, [result_mat, reference_result]])
+    return misses
 
 
-if __name__ == "__main__":
+def run_tests():
     import numpy as np
     from diagram_initialization import initialize_diagram
     #mat1 = np.random.random_integers(0,5,[3,3])
@@ -374,7 +450,7 @@ if __name__ == "__main__":
     initialize_diagram(vecDiag2, vec2, 0)
     initialize_diagram(diag1, mat1, 0)
     initialize_diagram(diag2, mat2, 0)
-#    print 'buh'
+ #  print 'buh'
     diag3 = multiply_diagram(diag1, diag2, 3)
     # diag3 = elementwise_multiply_diagrams(diag1, diag2)
     print('lala')
@@ -382,12 +458,31 @@ if __name__ == "__main__":
     print transpose_diagram(diag2, 3).to_matrix(3, False)
     print('correct result')
     print np.dot(mat1, mat2)
-    print (diag3.to_matrix(7, False))
-#    print('hi')
-#    print(diag3.d)
-    #print diag3.to_matrix()
-    # import code; code.interact(local=dict(locals().items() + globals().items()))
-    #a=BNode('hallo','x1')
-    #b=BNode('hallo1','x2',p=a)
-    #c=BNode('hallo1','x2',p=b)
-    #d=BNode('hallo1','x2',n=b)
+    print (diag3.to_matrix(7, True))
+    print np.max(np.abs(np.dot(mat1, mat2)-diag3.to_matrix(7, True)))
+    print('hi')
+    print(diag3.d)
+    print diag3.to_matrix()
+    import code; code.interact(local=dict(locals().items() + globals().items()))
+    a = BNode('hallo', 'x1')
+    b = BNode('hallo1', 'x2', p=a)
+    c = BNode('hallo1', 'x2', p=b)
+    d = BNode('hallo1', 'x2', n=b)
+
+
+def run_tests2():
+    a = np.array([[0.5, 0, 0, 0], [0, 0, 0, 0]])
+    diag1 = BNode('x')
+    from diagram_initialization import initialize_diagram
+    initialize_diagram(diag1, a, 0)
+    print diag1.to_matrix(2, False)
+
+
+if __name__ == "__main__":
+    misses = test_multiplication(500, 25, 0.6)
+    i = 0
+    for miss in misses:
+        i += 1
+    print i
+    # run_tests2()
+    # run_tests()

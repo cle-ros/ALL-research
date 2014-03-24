@@ -8,6 +8,8 @@ import numpy as np
 
 # in a later version, this function should be used to reduce the matrix
 # dimensionality to 2
+
+
 def flatten_matrix(matrix):
     """
     This function reduces an n-dimensional matrix to a 2-dimensional one
@@ -28,13 +30,15 @@ def get_req_vars(mat):
     """
     # checking the matrix dimension
     # 1. getting a binary representation of the shape
-    v_size = np.ceil(np.log2(mat.shape[0]))
+    v_size = int(np.ceil(np.log2(mat.shape[0])))
     try:
-        h_size = np.ceil(np.log2(mat.shape[1]))
+        h_size = int(np.ceil(np.log2(mat.shape[1])))
     except IndexError:
         h_size = 0
     # 2. computing the number of variables required for a matrix of this size
+    #   should it be an identity or a zero-matrix?
     return [v_size + h_size, v_size, h_size]
+    # return [2*max(v_size, h_size), max(v_size, h_size), max(v_size, h_size)]
 
 
 def expand_matrix2n(matrix, demanded_size, null_value):
@@ -48,6 +52,7 @@ def expand_matrix2n(matrix, demanded_size, null_value):
     """
     # TODO: maybe the resulting matrix should be squared, to "fill up" the remaining space with an identity matrix
     mat = np.ones([2**demanded_size[0], 2**demanded_size[1]]) * null_value
+    # mat = np.identity(2**demanded_size[0])
     try:
         mat[0:matrix.shape[0], 0:matrix.shape[1]] = matrix
     except IndexError:

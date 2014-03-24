@@ -36,7 +36,7 @@ def get_non_null_components(matrix, null_value, no_vars):
     row, col = np.nonzero(mat)
     leaves = []
     indices = []
-    is_vector = np.sum(col) == 0
+    is_vector = no_vars[2] == 0
     # cycling through those indices
     for i in range(row.shape[0]):
         # converting the integer indices to boolean ones
@@ -69,7 +69,7 @@ def sort_variables(indices, variables):
     return indices, variables, order
 
 
-def compute_diagram(node, bool_mat, leaves, var_names, matSize):
+def compute_diagram(node, bool_mat, leaves, var_names, mat_size):
     """
     This function computes a diagram from a given tree-object, a matrix
     containing all paths to non-null values in a boolean form, the according 
@@ -78,14 +78,21 @@ def compute_diagram(node, bool_mat, leaves, var_names, matSize):
     :param bool_mat:
     :param leaves:
     :param var_names:
-    :param matSize:
+    :param mat_size:
     """
     # concatenating the boolean matrix, the leaves_array and the variable names
     # to one large, and easier to handle, matrix
-    tmp_mat = np.append(var_names[None], bool_mat, axis=0)
-    tmp_mat = np.append(tmp_mat, np.append([-1], leaves, axis=1)[None].T, axis=1)
+    # TODO: FINISH UP HERE!
+    # creating the matrix for the recursive call
+    try:
+        tmp_mat = np.append(var_names[None], bool_mat, axis=0)
+        tmp_mat = np.append(tmp_mat, np.append([-1], np.array(leaves, dtype='str'), axis=1)[None].T, axis=1)
+        append_nodes_recursively(node, tmp_mat, {})
+    except ValueError:
+        # if the matrix is only of zeros, the diagram representation is the root only.
+        # therefore, return the unmodified root.
+        return node
     # calling the function which builds the tree recursively
-    append_nodes_recursively(node, tmp_mat, {})
     if node.p:
         node.d = node.p.d + 1
     else:
@@ -144,8 +151,9 @@ def append_nodes_recursively(node, child_matrix, found_leaves):
             append_nodes_recursively(new_node, neg_children, found_leaves)
 
 
-def reduceDiagram(tree):
+def reduce_diagram(tree):
     return
+
 
 def initialize_diagram(node, matrix, null_value, var_string='x'):
     # getting the number of required vars

@@ -214,6 +214,10 @@ class BNode(Node):
         """
         import numpy as np
 
+        # covering zero-matrices
+        if not self.p and not self.n:
+            return np.array([self.null_value])
+
         def to_mat_rec(node, nv):
             # making sure the node exists
             if not node:
