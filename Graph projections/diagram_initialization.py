@@ -131,7 +131,7 @@ def append_nodes_recursively(node, child_matrix, found_leaves):
         neg_children = np.append(child_matrix[0, 1:][None], child_matrix[child_matrix[:, 0] == '0'][:, 1:], axis=0)
         # creating the 'positive' subdiagram
         if pos_children.shape[0] > 1:
-            # creating the name of the node, denoted by the path leading to it
+            # creating the name of the node, denoted by the create_path leading to it
             node_name = child_matrix[0, 1]+'.'+node.name
             # adding the node
             new_node = type(node)(node_name, child_matrix.shape[1]-2)
@@ -141,7 +141,7 @@ def append_nodes_recursively(node, child_matrix, found_leaves):
             append_nodes_recursively(new_node, pos_children, found_leaves)
         # creating the 'negative' subdiagram
         if neg_children.shape[0] > 1:
-            # creating the name of the node, denoted by the path leading to it
+            # creating the name of the node, denoted by the create_path leading to it
             node_name = child_matrix[0, 1]+'.-'+node.name
             # adding the node
             new_node = type(node)(node_name, child_matrix.shape[1]-2)

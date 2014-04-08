@@ -4,7 +4,6 @@ Created on Thu Feb 13 14:23:43 2014
 
 @author: clemens
 """
-from diagram_initialization import initialize_diagram
 
 
 class Node(object):
@@ -27,19 +26,22 @@ class Node(object):
         self.leaf_type = Leaf
         self.null_value = nv
         self.shape = (0, 0)
+        self.paths = set()
         if not var is None:
             self.variable = var
         if not mat is None:
+            from diagram_initialization import initialize_diagram
             self.shape = initialize_diagram(self, mat, nv, var)
 
-    def add_child(self, child, number):
+    def add_child(self, child, number, offset=None):
         """        
         setting a node as a child node, where number denotes an internal reference
+        :param offset:
         """
         if isinstance(child, Node):
-            self.child_nodes[number] = child
+            self.child_nodes[number] = [child, offset]
         elif isinstance(child, Leaf):
-            self.child_nodes[number] = child
+            self.child_nodes[number] = [child, offset]
             self.leaves_set.add(child)
         else:
             raise Exception('Trying to add a non-node object as child node')
@@ -61,7 +63,7 @@ class Node(object):
         else:
             childrens_leaves = set()
             for child in self.child_nodes:
-                childrens_leaves = childrens_leaves.union(self.child_nodes[child].leaves)
+                childrens_leaves = childrens_leaves.union(self.child_nodes[child][0].leaves)
             # storing it for later use
             self.leaves_set = childrens_leaves
             return childrens_leaves
@@ -101,7 +103,7 @@ class Node(object):
         else:
             childrens_leaves = set()
             for child in self.child_nodes:
-                childrens_leaves = childrens_leaves.union(self.child_nodes[child].leaves)
+                childrens_leaves = childrens_leaves.union(self.child_nodes[child][0].leaves)
             # storing it for later use
             self.leaves_set = childrens_leaves
             return childrens_leaves
@@ -111,7 +113,7 @@ class Node(object):
         This function checks whether a node already is a child of the given node
         """
         if isinstance(node, Node):
-            return node in self.child_nodes.values()
+            return [node, None] in self.child_nodes.values()
         else:
             raise NoSuchNode('Unrecognized node-reference')
 
@@ -120,7 +122,7 @@ class Node(object):
         Removes the specified node as a child
         """
         for child in self.child_nodes:
-            if node == self.child_nodes[child]:
+            if node == self.child_nodes[child][0]:
                 self.child_nodes.pop(child)
                 return
         raise Warning('Trying to remove child '+node.name+', which is not child of node '+self.name)
@@ -148,16 +150,71 @@ class Node(object):
                     children.append(child)
                 children.sort()
                 for child in children:
-                    get_sds_rec(node.child_nodes[child], sds, level, cur_level+1)
+                    get_sds_rec(node.child_nodes[child][0], sds, level, cur_level+1)
         get_sds_rec(self, subdiagrams, depth, 0)
         return subdiagrams
+
+    def get_subdiagrams_grouped_by_level(self):
+        """
+        This function creates a list of sets, where the 0th list contains the root node, and the last entry
+        is a set of the leaves. The lists in between correspond to the "distance" from the root, sorted
+        by that distance.
+        """
+        subds = []
+
+        def get_subds_gbl_rec(node, level):
+            """
+            The recursive call
+            """
+            try:
+                subds[level] = subds[level].union({node})
+            except IndexError:
+                subds.append({node})
+            if not isinstance(node, Leaf):
+                for child in node.child_nodes:
+                    get_subds_gbl_rec(node.child_nodes[child][0], level+1)
+
+        get_subds_gbl_rec(self, 0)
+        return subds
+
+    def get_paths(self, refresh=False):
+        """
+        A helper method to construct all paths derivating from this node. Returning a set.
+        """
+
+        def paths_rec(node, path, encountered_paths, refr):
+            if node.paths == set() or refr:
+                if isinstance(node, Leaf):
+                    node.paths = {node.value}
+                    return path+str(node.value)
+                else:
+                    for child in node.child_nodes:
+                        if not node.child_nodes[child][1] is None:
+                            offset_string = str(node.child_nodes[child][1])
+                        else:
+                            offset_string = ''
+                        new_path = path + str(child) + offset_string + ','
+                        path1 = paths_rec(node.child_nodes[child][0], new_path, encountered_paths, refr)
+                        if isinstance(path1, str):
+                            encountered_paths.append(path1)
+                    return encountered_paths
+            else:
+                return self.paths
+
+        return paths_rec(self, '', [], refresh)
+
+    def __hash__(self):
+        """
+        A test function to make nodes hashable. The hash is the dictionary of children.
+        """
+        return self.get_paths()
 
 
 class BNode(Node):
     """
     This class extends Node for binary graphs
     """
-    def __init__(self, denominator, depth=None, nv=0, mat=None, var=None):
+    def __init__(self, denominator='', depth=None, nv=0, mat=None, var=None):
         """
 
         :param mat:
@@ -165,6 +222,7 @@ class BNode(Node):
         variable:       the variable represented by the node (str)
         """
         Node.__init__(self, denominator, depth, nv, mat, var)
+        self.edge_values = {}
         self.leaf_type = BLeaf
 
     @property
@@ -174,7 +232,7 @@ class BNode(Node):
         :return:
         """
         if 1 in self.child_nodes:
-            return self.child_nodes[1]
+            return self.child_nodes[1][0]
         else:
             return False
 
@@ -184,7 +242,7 @@ class BNode(Node):
         A setter for the positive fork, for easier access to the only forks available
         :param child:
         """
-        Node.add_child(self, child, 1)
+        Node.add_child(self, child, None)
 
     @property
     def n(self):
@@ -194,7 +252,7 @@ class BNode(Node):
         :type return: BNode
         """
         if 0 in self.child_nodes:
-            return self.child_nodes[0]
+            return self.child_nodes[0][0]
         else:
             return False
 
@@ -204,7 +262,7 @@ class BNode(Node):
         A setter for the positive fork, for easier access to the only forks available
         :param child:
         """
-        Node.add_child(self, child, 0)
+        Node.add_child(self, child, None)
 
     def to_matrix(self, rows=1, cropping=False):
         """
@@ -237,6 +295,7 @@ class BNode(Node):
                     nfork = np.ones(p_cshape)*nv
                 # deciding whether the matrices shall be horizontally or vertically concatenated
                 return np.concatenate((nfork, pfork), 1), mat_shape
+
         result, shape = to_mat_rec(self, self.null_value)
         rows = 2**np.ceil(np.log2(rows))
         result = np.reshape(result, (rows, shape/rows))
@@ -257,6 +316,40 @@ class BNode(Node):
     def m(self):
         return self.to_matrix()
 
+    def decompose_paths(self):
+        """
+        This function decomposes a diagram into the set of its paths from root to leaves
+        :param self:
+        """
+        if self.p is False and self.n is False:
+            return []
+
+        import numpy as np
+
+        def decompose_paths_rec(node_inner, path):
+            """
+            This function does the recursive create_path of the decomposition
+            :param node_inner:
+            :param path:
+            """
+            if node_inner.is_leaf():
+                path = np.append(path, str(node_inner.value))
+                return path[None]
+            else:
+                paths = np.array([])
+                if node_inner.p:
+                    new_path = np.append(path, '1')
+                    p_paths = decompose_paths_rec(node_inner.p, new_path)
+                    paths = np.append(paths, p_paths)
+                if node_inner.n:
+                    new_path = np.append(path, '0')
+                    n_paths = decompose_paths_rec(node_inner.n, new_path)
+                    paths = np.append(paths, n_paths)
+            return paths
+
+        decomposition = decompose_paths_rec(self, np.array([]))
+        return decomposition.reshape((decomposition.shape[0]/(self.d+1), self.d+1))
+
 
 class Leaf(Node):
     """
@@ -273,10 +366,10 @@ class Leaf(Node):
         self.value = val
         self.shape = [1, 1]
 
-    def add_child(self, node, number):
+    def add_child(self, child, number, offset):
         """
         This method overrides the add_child method of Node, to prevent a leaf with a child
-        :param node:
+        :param offset:
         :param number:
         :raise Exception:
         """
