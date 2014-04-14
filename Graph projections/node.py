@@ -13,15 +13,17 @@ class Node(object):
     for the specific case, i.e. binary nodes (see class BNode))
     """
     properties = {}
-    
-    def __init__(self, denominator, depth=None, nv=0, mat=None, var='x'):
+    from binary_diagram import MTBDD
+    def __init__(self, denominator='', diagram_type=MTBDD, depth=None, nv=0, mat=None, var='x'):
         """        
         all required information are the name of the node
         :param mat:
         """
         self.name = denominator
         self.d = depth
+        self.dtype = diagram_type
         self.child_nodes = {}
+        self.offsets = {}
         self.leaves_set = set()
         self.leaf_type = Leaf
         self.null_value = nv
@@ -38,11 +40,15 @@ class Node(object):
         setting a node as a child node, where number denotes an internal reference
         :param offset:
         """
-        if isinstance(child, Node):
-            self.child_nodes[number] = [child, offset]
-        elif isinstance(child, Leaf):
-            self.child_nodes[number] = [child, offset]
+        if isinstance(child, Leaf):
+            self.child_nodes[number] = child
             self.leaves_set.add(child)
+            if not offset is None:
+                self.offsets[number] = offset
+        elif isinstance(child, Node):
+            self.child_nodes[number] = child
+            if not offset is None:
+                self.offsets[number] = offset
         else:
             raise Exception('Trying to add a non-node object as child node')
 
@@ -63,7 +69,7 @@ class Node(object):
         else:
             childrens_leaves = set()
             for child in self.child_nodes:
-                childrens_leaves = childrens_leaves.union(self.child_nodes[child][0].leaves)
+                childrens_leaves = childrens_leaves.union(self.child_nodes[child].leaves)
             # storing it for later use
             self.leaves_set = childrens_leaves
             return childrens_leaves
@@ -103,7 +109,7 @@ class Node(object):
         else:
             childrens_leaves = set()
             for child in self.child_nodes:
-                childrens_leaves = childrens_leaves.union(self.child_nodes[child][0].leaves)
+                childrens_leaves = childrens_leaves.union(self.child_nodes[child].reinitialize_leaves())
             # storing it for later use
             self.leaves_set = childrens_leaves
             return childrens_leaves
@@ -113,7 +119,7 @@ class Node(object):
         This function checks whether a node already is a child of the given node
         """
         if isinstance(node, Node):
-            return [node, None] in self.child_nodes.values()
+            return node in self.child_nodes.values()
         else:
             raise NoSuchNode('Unrecognized node-reference')
 
@@ -122,7 +128,7 @@ class Node(object):
         Removes the specified node as a child
         """
         for child in self.child_nodes:
-            if node == self.child_nodes[child][0]:
+            if node == self.child_nodes[child]:
                 self.child_nodes.pop(child)
                 return
         raise Warning('Trying to remove child '+node.name+', which is not child of node '+self.name)
@@ -150,7 +156,7 @@ class Node(object):
                     children.append(child)
                 children.sort()
                 for child in children:
-                    get_sds_rec(node.child_nodes[child][0], sds, level, cur_level+1)
+                    get_sds_rec(node.child_nodes[child], sds, level, cur_level+1)
         get_sds_rec(self, subdiagrams, depth, 0)
         return subdiagrams
 
@@ -205,23 +211,26 @@ class Node(object):
 
     def __hash__(self):
         """
-        A test function to make nodes hashable. The hash is the dictionary of children.
+        A test function to make nodes hashable. The hash is the address of the python object.
         """
-        return self.get_paths()
+        # return int(str(self)[-10:-1:], 16)
+        return hash(str(self))
 
 
 class BNode(Node):
     """
     This class extends Node for binary graphs
     """
-    def __init__(self, denominator='', depth=None, nv=0, mat=None, var=None):
+    from binary_diagram import MTBDD
+
+    def __init__(self, denominator='', diagram_type=MTBDD, depth=None, nv=0, mat=None, var=None):
         """
 
         :param mat:
         denominator:    the name of the node (str)
         variable:       the variable represented by the node (str)
         """
-        Node.__init__(self, denominator, depth, nv, mat, var)
+        Node.__init__(self, denominator, diagram_type, depth, nv, mat, var)
         self.edge_values = {}
         self.leaf_type = BLeaf
 
@@ -232,7 +241,7 @@ class BNode(Node):
         :return:
         """
         if 1 in self.child_nodes:
-            return self.child_nodes[1][0]
+            return self.child_nodes[1]
         else:
             return False
 
@@ -242,7 +251,11 @@ class BNode(Node):
         A setter for the positive fork, for easier access to the only forks available
         :param child:
         """
-        Node.add_child(self, child, None)
+        try:
+            self.add_child(self, child[0], 1)
+            self.child_nodes[1].append(child[1])
+        except TypeError:
+            Node.add_child(self, child, 1)
 
     @property
     def n(self):
@@ -252,7 +265,7 @@ class BNode(Node):
         :type return: BNode
         """
         if 0 in self.child_nodes:
-            return self.child_nodes[0][0]
+            return self.child_nodes[0]
         else:
             return False
 
@@ -262,7 +275,50 @@ class BNode(Node):
         A setter for the positive fork, for easier access to the only forks available
         :param child:
         """
-        Node.add_child(self, child, None)
+        try:
+            self.add_child(self, child[0], 0)
+            self.offsets[0] = child[1]
+        except TypeError:
+            Node.add_child(self, child, 0)
+
+    @property
+    def po(self):
+        """
+        A property for the positive fork offset
+        :return:
+        """
+        if 1 in self.offsets:
+            return self.offsets[1]
+        else:
+            return False
+
+    @po.setter
+    def po(self, offset):
+        """
+        A setter for the positive fork offset
+        :param offset:
+        """
+        self.offsets[1] = offset
+
+    @property
+    def no(self):
+        """
+        A property for the negative fork offset
+        :return:
+        :type return: BNode
+        """
+        if 0 in self.offsets:
+            return self.offsets[0]
+        else:
+            return False
+
+    @no.setter
+    def no(self, offset):
+        """
+        A setter for the positive fork offset
+        :param offset:
+        """
+        self.offsets[0] = offset
 
     def to_matrix(self, rows=1, cropping=False):
         """
@@ -276,17 +332,17 @@ class BNode(Node):
         if not self.p and not self.n:
             return np.array([self.null_value])
 
-        def to_mat_rec(node, nv):
+        def to_mat_rec(node, offset, nv):
             # making sure the node exists
             if not node:
                 return None, 0
             # checking whether the node is a leaf
             if node.is_leaf():
-                return np.array(node.value)[None], 1
+                return self.dtype.to_mat(node, offset), 1
             else:
                 # the recursive call
-                nfork, n_cshape = to_mat_rec(node.n, nv)
-                pfork, p_cshape = to_mat_rec(node.p, nv)
+                nfork, n_cshape = to_mat_rec(node.n, node.no+offset, nv)
+                pfork, p_cshape = to_mat_rec(node.p, node.po+offset, nv)
                 # getting the size for a missing fork
                 mat_shape = 2*max(n_cshape, p_cshape)
                 if pfork is None:
@@ -296,7 +352,7 @@ class BNode(Node):
                 # deciding whether the matrices shall be horizontally or vertically concatenated
                 return np.concatenate((nfork, pfork), 1), mat_shape
 
-        result, shape = to_mat_rec(self, self.null_value)
+        result, shape = to_mat_rec(self, 0, self.null_value)
         rows = 2**np.ceil(np.log2(rows))
         result = np.reshape(result, (rows, shape/rows))
         # if desired, crop the result of all zero columns/rows in the lower right
@@ -361,12 +417,12 @@ class Leaf(Node):
         :param denominator:
         :param val:
         """
-        Node.__init__(self, denominator, 0)
+        Node.__init__(self, denominator)
         self.child_nodes = None
         self.value = val
         self.shape = [1, 1]
 
-    def add_child(self, child, number, offset):
+    def add_child(self, child, number, offset=None):
         """
         This method overrides the add_child method of Node, to prevent a leaf with a child
         :param offset:

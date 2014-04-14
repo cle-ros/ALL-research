@@ -99,16 +99,46 @@ def run_tests2():
     print diag1.to_matrix(2, False)
 
 
-if __name__ == "__main__":
-    from diagram_initialization import initialize_diagram
-    mat2 = np.array([[1, -2, 0], [2, -3, 0], [3, -4, 1]])
-    diag2 = BNode('y')
-    initialize_diagram(diag2, mat2, 0)
-    # a = diag2.get_subdiagrams_grouped_by_level()
-    # for list in a:
-    #     print list
-    b = diag2.get_paths()
-    print b
+def test_new_implementation():
+    from binary_diagram import MTBDD
+    mat1 = np.array([[1, 2, 0], [0, 3, 0], [0, 4, 1], [1, 5, 0], [1, 5, 0], [1, 5, 0], [1, 5, 0]])
+    mtbdd = MTBDD()
+    node = mtbdd.create(mat1, 0)
+    print node.to_matrix(7)
+    print node.get_subdiagrams(5)
 
+
+def test_reduction():
+    from binary_diagram import MTBDD, EVBDD
+    mat1 = np.array([[1, 2, 0], [0, 1, 0], [2, 4, 1], [1, 5, 0], [1, 5, 0], [1, 5, 0], [1, 5, 0]], dtype=float)
+    print mat1
+    print('MTBDD:')
+    mtbdd = MTBDD()
+    node = mtbdd.create(mat1, 0)
+    # import code; code.interact(local=dict(locals().items() + globals().items()))
+    # print node.to_matrix(7)
+    # print node.leaves
+    node1 = mtbdd.create(mat1, 0)
+    reduced = mtbdd.reduce(node1)
+    # import code; code.interact(local=dict(locals().items() + globals().items()))
+    red = reduced.leaves
+    print node.to_matrix(7)
+    print len(node.leaves)
+    print reduced.to_matrix(7)
+    print len(red)
+    print('EVBDD:')
+    mtbdd = EVBDD()
+    node = mtbdd.create(mat1, 0)
+    node1 = mtbdd.create(mat1, 0)
+    reduced = mtbdd.reduce(node1)
+    red = reduced.leaves
+    print node.to_matrix(7)
+    print len(node.leaves)
+    print reduced.to_matrix(7)
+    print len(red)
+
+
+if __name__ == "__main__":
+    test_reduction()
     # run_tests2()
     # run_tests()
