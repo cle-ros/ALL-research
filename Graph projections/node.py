@@ -337,12 +337,12 @@ class BNode(Node):
             if not node:
                 return None, 0
             # checking whether the node is a leaf
-            if node.is_leaf():
+            elif node.is_leaf():
                 return self.dtype.to_mat(node, offset), 1
             else:
                 # the recursive call
-                nfork, n_cshape = to_mat_rec(node.n, node.no+offset, nv)
-                pfork, p_cshape = to_mat_rec(node.p, node.po+offset, nv)
+                nfork, n_cshape = to_mat_rec(node.n, self.dtype.to_mat(node, node.no, offset), nv)
+                pfork, p_cshape = to_mat_rec(node.p, self.dtype.to_mat(node, node.po, offset), nv)
                 # getting the size for a missing fork
                 mat_shape = 2*max(n_cshape, p_cshape)
                 if pfork is None:

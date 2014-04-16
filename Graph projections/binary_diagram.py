@@ -43,16 +43,12 @@ class BinaryDiagram:
                 #   has to be updated
                 if node.n:
                     traces_n, recent_trace_n = collect_traces_rec(node.n)
-                    if node.no:
-                        recent_trace_n = str(node.no) + recent_trace_n
                     if recent_trace_n in traces_n:
                         traces_n[recent_trace_n][0].append(node)
                     else:
                         traces_n[recent_trace_n] = [[node], []]
                 if node.p:
                     traces_p, recent_trace_p = collect_traces_rec(node.p)
-                    if node.po:
-                        recent_trace_p = str(node.po) + recent_trace_p
                     if recent_trace_p in traces_p:
                         traces_p[recent_trace_p][1].append(node)
                     else:
@@ -72,6 +68,10 @@ class BinaryDiagram:
                     else:
                         traces[ctrace] = traces_p[ctrace]
                 # returning it
+                if node.no:
+                    recent_trace_n = str(node.no) + recent_trace_n
+                if node.po:
+                    recent_trace_p = str(node.po) + recent_trace_p
                 return traces, '0:'+recent_trace_n+'1:'+recent_trace_p
 
         known_traces, last_trace = collect_traces_rec(node_o)
@@ -133,7 +133,7 @@ class BinaryDiagram:
         """
         raise NotImplementedError
 
-    def to_mat(self):
+    def to_mat(self, loffset, goffset):
         raise NotImplementedError
 
 
@@ -154,7 +154,7 @@ class MTBDD(BinaryDiagram):
         return node, 0
 
     @staticmethod
-    def to_mat(leaf, offset=None):
+    def to_mat(leaf, loffset=None, goffset=None):
         """
         The diagram-type specific function to convert nodes to matrices
         """
@@ -162,7 +162,7 @@ class MTBDD(BinaryDiagram):
         if leaf.is_leaf():
             return np.array(leaf.value)[None]
         else:
-            raise TypeError
+            return None
 
 
 class EVBDD(BinaryDiagram):
@@ -174,14 +174,10 @@ class EVBDD(BinaryDiagram):
         """
         This function creates the leaves from the values given, and the node one step up
         """
-        n_value = 0
-        p_value = leaf_values[1] - leaf_values[0]
-        offset = leaf_values[0]
-        parent_node.n = self.leaf_type(0, 0)
-        parent_node.no = n_value
-        parent_node.p = parent_node.n
-        parent_node.po = p_value
-        return parent_node, offset
+        parent_node.n = parent_node.p = self.leaf_type(0, 0)
+        parent_node.no = 0
+        parent_node.po = leaf_values[1] - leaf_values[0]
+        return parent_node, leaf_values[0]
 
     def create_tuple(self, node, n_offset, p_offset):
         """
@@ -192,12 +188,15 @@ class EVBDD(BinaryDiagram):
         return node, n_offset
 
     @staticmethod
-    def to_mat(leaf, offset=0):
+    def to_mat(node, goffset=0, loffset=0):
         """
         The diagram-type specific function to convert nodes to matrices
         """
         import numpy as np
-        if leaf.is_leaf():
-            return np.array((leaf.value + offset))[None]
+        from node import Node, Leaf
+        if isinstance(node, Leaf):
+            return np.array((node.value + goffset))[None]
+        elif isinstance(node, Node):
+            return loffset + goffset
         else:
             raise TypeError
