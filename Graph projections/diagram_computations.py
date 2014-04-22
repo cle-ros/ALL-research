@@ -66,23 +66,26 @@ def scalar_multiply_diagram(diagram, scalar):
     :param scalar:
     :return:
     """
+    diagram.reinitialize_nodes()
     result = copy.deepcopy(diagram)
-    for leaf in result.leaves_array:
-        leaf.value = leaf.value*scalar
+
+    for node in result.nodes:
+        node.dtype.scalar_mult(node, scalar)
+
     return result
 
 
-def get_subdiagrams(diagram, n):
+def get_subdiagrams(diagram, depth):
     """
     This function takes a diagram and returns a list of all the subdiagrams at the nth level
     :param diagram:
-    :param n:
+    :param depth:
     """
     subdiags = []
 
     def get_subdiags_rec(node, level):
         # a nested function for the recursive call
-        if level == n:
+        if level == depth:
             subdiags.append(diagram)
         else:
             for child in node.child_nodes:
@@ -90,7 +93,7 @@ def get_subdiagrams(diagram, n):
     return subdiags
 
 
-def add_diagrams(dia1, dia2):
+def add_diagrams(dia1, dia2, to_reduce=True, offset=[0, 0]):
     """
     This function adds two graphs. The underlying logic represents matrix addition, and therefore requires the same
      shape of the two diagrams.
@@ -106,55 +109,31 @@ def add_diagrams(dia1, dia2):
     3. clean up
     """
     #    result = create_target_diagram(dia1, dia2, **options)
-    def add_binary_diagrams_rec(node1, node2, found_leaves):
+    def add_binary_diagrams_rec(node1, node2, ioffset):
         """
         This function adds two subdiagrams specified by the respective root_node, node1/node2
         """
         # checking for the type of node:
         if node1.is_leaf() and node2.is_leaf():
-            value = node1.value+node2.value
-            if value == 0:
-                return False
-            if value in found_leaves:
-                return found_leaves[value]
-            leaf = node1.leaf_type(value, value)
-            found_leaves[value] = leaf
+            value = node1.dtype.add(node1, node2, ioffset)
+            leaf = node1.leaf_type(value, value, diagram_type=node1.dtype)
             return leaf
         else:
             # checking for the cases in which a fork exists in both diagrams
-            node = type(node1)(node1.name, node1.null_value)
+            node = type(node1)(diagram_type=node1.dtype, nv=node1.null_value)
             # checking for the positive fork:
-            if node1.p and node2.p:
-                p_edge = add_binary_diagrams_rec(node1.p, node2.p, found_leaves)
-                if p_edge:
-                    node.p = p_edge
-                    node.d = p_edge.d + 1
-            # checking for the negative fork:
-            if node1.n and node2.n:
-                n_edge = add_binary_diagrams_rec(node1.n, node2.n, found_leaves)
-                if n_edge:
-                    node.n = n_edge
-                    node.d = n_edge.d + 1
-            # checking for forks off node1 and not off node2
-            if node1.p and not node2.p:
-                node.p = copy.deepcopy(node1.p)
-                node.d = node.p.d + 1
-            if node1.n and not node2.n:
-                node.n = copy.deepcopy(node1.n)
-                node.d = node.n.d + 1
-            # checking for forks off node2 and not off node1
-            if node2.p and not node1.p:
-                node.p = copy.deepcopy(node2.p)
-                node.d = node.p.d + 1
-            if node2.n and not node1.n:
-                node.n = copy.deepcopy(node2.n)
-                node.d = node.n.d + 1
-            # If nothing caught a return statement, return False
-            if node.n or node.p:
-                return node
-            return False
+            n_offset, p_offset = node.dtype.add(node1, node2, ioffset)
+            node.n = add_binary_diagrams_rec(node1.n, node2.n, [0, 0, 0])
+            node.p = add_binary_diagrams_rec(node1.p, node2.p, [0, 0, 0])
+            node.no = n_offset
+            node.po = p_offset
+            node.d = node1.d
+            return node
 
-    return add_binary_diagrams_rec(dia1, dia2, {})
+    diagram = add_binary_diagrams_rec(dia1, dia2, offset)
+    if to_reduce:
+        diagram.dtype.reduce(diagram)
+    return diagram
 
 
 def elementwise_multiply_diagrams(dia1, dia2, **options):
@@ -211,10 +190,18 @@ def diagram_sum(node):
     """
     This function sums up all leaf-values of a  diagram disregarding any dimensionality
     """
-    nsum = 0
-    for leaf in node.leaves:
-        nsum += leaf.value
-    return nsum
+    from node import Leaf
+
+    def diagram_sum_rec(node1, offset):
+        if isinstance(node1, Leaf):
+            return node1.dtype.sum(node1, offset)
+        else:
+            n_offset, p_offset = node1.dtype.sum(node1, offset)
+            n_value = diagram_sum_rec(node1.n, n_offset)
+            p_value = diagram_sum_rec(node1.p, p_offset)
+            return n_value + p_value
+
+    return diagram_sum_rec(node, 0)
 
 
 def multiply_by_column_vector(mat_diagram, vec_diagram):
@@ -232,7 +219,7 @@ def multiply_by_column_vector(mat_diagram, vec_diagram):
         The recursive function
         """
         try:
-            matd.d == False
+            matd.d is False
         except AttributeError:
             raise AttributeError
         if matd.d > vecd.d:

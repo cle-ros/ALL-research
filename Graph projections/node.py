@@ -14,6 +14,7 @@ class Node(object):
     """
     properties = {}
     from binary_diagram import MTBDD
+
     def __init__(self, denominator='', diagram_type=MTBDD, depth=None, nv=0, mat=None, var='x'):
         """        
         all required information are the name of the node
@@ -25,6 +26,7 @@ class Node(object):
         self.child_nodes = {}
         self.offsets = {}
         self.leaves_set = set()
+        self.nodes_set = set()
         self.leaf_type = Leaf
         self.null_value = nv
         self.shape = (0, 0)
@@ -113,6 +115,68 @@ class Node(object):
             # storing it for later use
             self.leaves_set = childrens_leaves
             return childrens_leaves
+
+    @property
+    def nodes(self):
+        """
+        This property returns the leaves_array and the end of this diagram
+        :rtype : array of leaf-nodes
+        :return:
+        """
+        # is the current node a leaf?
+        if self.is_leaf():
+            return {self}
+        # or does it already have leaf-entries?
+        elif not self.nodes_set == set():
+            return self.nodes_set
+        # if not, recursively return all children
+        else:
+            children_nodes = {self}
+            for child in self.child_nodes:
+                children_nodes = children_nodes.union(self.child_nodes[child].nodes)
+            # storing it for later use
+            self.nodes_set = children_nodes
+            return children_nodes
+
+    @nodes.setter
+    def nodes(self, nodes_array):
+        """
+         The leaf - setter function.
+        """
+        self.nodes_set = nodes_array
+
+    def get_node(self, node):
+        """
+        This method returns a boolean value symbolizing whether the leaf is in the leaves_array
+        """
+        # do we have a node-object passed?
+        if isinstance(node, Node):
+            if node in self.nodes:
+                return node
+        # if not, look for the name/value
+        else:
+            for known_node in self.nodes:
+                if known_node.denominator == str(node):
+                    return known_node
+        #raise NoSuchNode('The leaf '+str(leaf)+' is not a leaf of node ' + self.name)
+        raise NoSuchNode('The object '+str(node)+' is not a leaf of node ' + self.name)
+
+    def reinitialize_nodes(self):
+        """
+        This method reinitializes the leaf-array in case some operation on the diagram changed it
+        :return: set of all leave nodes
+        """
+        # is the current node a leaf?
+        if self.is_leaf():
+            return {self}
+        # if not, recursively return all children
+        else:
+            children_nodes = {self}
+            for child in self.child_nodes:
+                children_nodes = children_nodes.union(self.child_nodes[child].reinitialize_nodes())
+            # storing it for later use
+            self.nodes_set = children_nodes
+            return children_nodes
 
     def is_child(self, node):
         """
@@ -213,8 +277,19 @@ class Node(object):
         """
         A test function to make nodes hashable. The hash is the address of the python object.
         """
-        # return int(str(self)[-10:-1:], 16)
         return hash(str(self))
+
+    def add(self, node, **offset):
+        """
+        This method adds the current node and the argument, returning a new diagram
+        """
+        return self.dtype.add(self, node, **offset)
+
+    def sum(self, **offset):
+        """
+        This method sums the current node
+        """
+        return self.dtype.sum(self, **offset)
 
 
 class BNode(Node):
@@ -411,13 +486,15 @@ class Leaf(Node):
     """
     This special node-type is reserved for modeling the leaves_array of the diagram
     """
-    def __init__(self, denominator, val):
+    from binary_diagram import MTBDD
+
+    def __init__(self, denominator, val, diagram_type=MTBDD):
         """
         Simply calles the super method and sets the special attribute "value"
         :param denominator:
         :param val:
         """
-        Node.__init__(self, denominator)
+        Node.__init__(self, denominator, diagram_type=diagram_type)
         self.child_nodes = None
         self.value = val
         self.shape = [1, 1]
@@ -444,8 +521,10 @@ class BLeaf(Leaf):
     """
     A special class for leaves_array in binary diagrams
     """
-    def __init__(self, denominator, val):
-        Leaf.__init__(self, denominator, val)
+    from binary_diagram import MTBDD
+
+    def __init__(self, denominator, val, diagram_type=MTBDD):
+        Leaf.__init__(self, denominator, val, diagram_type=diagram_type)
 
 
 class NoSuchNode(Exception):

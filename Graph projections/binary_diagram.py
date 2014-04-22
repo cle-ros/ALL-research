@@ -27,13 +27,13 @@ class BinaryDiagram:
         """
         This function reduces the diagram to a (close to) minimal representation.
         """
-        from node import BLeaf
+        from node import Leaf
 
         def collect_traces_rec(node):
             """
             this function creates a dictionary of all the traces in the diagram
             """
-            if isinstance(node, BLeaf):
+            if isinstance(node, Leaf):
                 return {str(node.value): [[], []]}, str(node.value)
             else:
                 traces_p = traces_n = {}
@@ -110,19 +110,23 @@ class BinaryDiagram:
             entry_length = len(values)/2
             if entry_length == 1:
                 node, offset = self.create_leaves(node, values)
+                node.d = depth = 0
             else:
                 # somewhere around here the create_tuple has to be used.
-                node.p, p_offset = create_diagram_rec(values[entry_length:])
-                node.n, n_offset = create_diagram_rec(values[0:entry_length])
+                node.p, p_offset, depth = create_diagram_rec(values[entry_length:])
+                node.n, n_offset, depth = create_diagram_rec(values[0:entry_length])
+                depth += 1
                 node, offset = self.create_tuple(node, n_offset, p_offset)
-            return node, offset
+                node.d = depth
+            return node, offset, depth
 
-        diagram, f_offset = create_diagram_rec(leaves)
+        diagram, f_offset, d = create_diagram_rec(leaves)
 
         # making sure that the entire diagram is not "off" by the final offset
         if f_offset != 0:
-            for leaf in diagram.leaves:
-                leaf.value = leaf.value + f_offset
+            self.include_final_offset(diagram, f_offset)
+
+        self.reduce(diagram)
 
         return diagram
 
@@ -136,6 +140,31 @@ class BinaryDiagram:
     def to_mat(self, loffset, goffset):
         raise NotImplementedError
 
+    def include_final_offset(self, node, offset):
+        raise NotImplementedError
+
+    def add(self, node1, offset=[0, 0]):
+        """
+        This function adds two nodes
+        :rtype : array of offsets (e.g. n-offset, p-offset)
+        :param node1: the first node
+        :param node2: the second node
+        :param offset: the parent offset
+        """
+        raise NotImplementedError
+
+    def sum(self, offset):
+        """
+        the helper function for summing a diagram
+        """
+        raise NotImplementedError
+
+    def scalar_mult(self, scalar):
+        """
+        The helper function for scalar multiplication
+        """
+        raise NotImplementedError
+
 
 class MTBDD(BinaryDiagram):
     def __init__(self):
@@ -146,8 +175,8 @@ class MTBDD(BinaryDiagram):
         """
         This function creates the leaves from the values given, and the node one step up
         """
-        parent_node.n = self.leaf_type(leaf_values[0], leaf_values[0])
-        parent_node.p = self.leaf_type(leaf_values[1], leaf_values[1])
+        parent_node.n = self.leaf_type(leaf_values[0], leaf_values[0], diagram_type=MTBDD)
+        parent_node.p = self.leaf_type(leaf_values[1], leaf_values[1], diagram_type=MTBDD)
         return parent_node, 0
 
     def create_tuple(self, node, n_offset, p_offset):
@@ -164,6 +193,47 @@ class MTBDD(BinaryDiagram):
         else:
             return None
 
+    def include_final_offset(self, node, offset):
+        """
+        This function includes an offset remaining after creating the diagram into the diagram.
+        """
+        for leaf in node.leaves:
+            leaf.value = leaf.value + offset
+
+    @staticmethod
+    def add(node1, node2, offset=[0, 0]):
+        """
+        This function adds two nodes
+        """
+        from node import Leaf
+        if isinstance(node1, Leaf):
+            return node1.value + node2.value
+        else:
+            return 0, 0
+
+    @staticmethod
+    def sum(node, offset):
+        """
+        This function takes a node and an offset to compute the new offset for the children nodes.
+        """
+        from node import Leaf
+        if isinstance(node, Leaf):
+            return node.value
+        else:
+            return 0, 0
+
+    @staticmethod
+    def scalar_mult(node, scalar):
+        """
+        The helper function for scalar multiplication.
+        """
+        from node import Leaf
+        if isinstance(node, Leaf):
+            node.value = node.value * scalar
+            return node
+        else:
+            return node
+
 
 class EVBDD(BinaryDiagram):
     def __init__(self):
@@ -174,7 +244,7 @@ class EVBDD(BinaryDiagram):
         """
         This function creates the leaves from the values given, and the node one step up
         """
-        parent_node.n = parent_node.p = self.leaf_type(0, 0)
+        parent_node.n = parent_node.p = self.leaf_type(0, 0, diagram_type=EVBDD)
         parent_node.no = 0
         parent_node.po = leaf_values[1] - leaf_values[0]
         return parent_node, leaf_values[0]
@@ -200,3 +270,47 @@ class EVBDD(BinaryDiagram):
             return loffset + goffset
         else:
             raise TypeError
+
+    def include_final_offset(self, node, offset):
+        """
+        This function includes an offset remaining after creating the diagram into the diagram.
+        """
+        for leaf in node.leaves:
+            leaf.value = leaf.value + offset
+
+    @staticmethod
+    def add(node1, node2, offset=[0, 0]):
+        """
+        This function adds two nodes, returning the respective offset for n and p
+        """
+        from node import Leaf
+        if isinstance(node1, Leaf):
+            return node1.value + node2.value + offset[0] + offset[1]
+        else:
+            return node1.no + node2.no + offset[0], node1.po + node2.po + offset[1]
+
+    @staticmethod
+    def sum(node, offset):
+        """
+        This function takes an offset and a node to create the two new offsets for the different children
+        """
+        from node import Leaf
+        if isinstance(node, Leaf):
+            return node.value + offset
+        else:
+            return node.no + offset, node.po + offset
+
+    @staticmethod
+    def scalar_mult(node, scalar):
+        """
+        The helper function for scalar multiplication.
+        """
+        from node import Leaf
+        if isinstance(node, Leaf):
+            node.value = node.value * scalar
+            return node
+        else:
+            node.no = node.no * scalar
+            node.po = node.po * scalar
+            return node
+

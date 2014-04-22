@@ -138,7 +138,50 @@ def test_reduction():
     print len(red)
 
 
+def test_addition():
+    from binary_diagram import MTBDD, EVBDD
+    mat1 = np.array([[1, 7, 0], [0, -1, 0], [2, 8, 1], [1, 5, 0], [1, 5, 0], [1, 5, 0], [1, 15, 0]], dtype=float)
+    print mat1+mat1
+    print('MTBDD:')
+    mtbdd = MTBDD()
+    node1 = mtbdd.create(mat1, 0)
+    node2 = mtbdd.create(mat1, 0)
+    from diagram_computations import add_diagrams
+    node3 = add_diagrams(node1, node2)
+    print node3.to_matrix(7, True)
+    print('EVBDD:')
+    evbdd = EVBDD()
+    node4 = evbdd.create(mat1, 0)
+    node5 = evbdd.create(mat1, 0)
+    from diagram_computations import diagram_sum
+    node6 = add_diagrams(node4, node5)
+    print node6.to_matrix(7, True)
+    print('summing the diagrams:')
+    print mat1
+    print diagram_sum(node1)
+    print diagram_sum(node4)
+    print np.sum(mat1)
+    print node4.nodes
+
+
+def test_multiplication():
+    from binary_diagram import MTBDD, EVBDD
+    mat1 = np.array([[1, 7, 0], [0, -1, 0], [2, 8, 1], [1, 5, 0], [1, 5, 0], [1, 5, 0], [1, 15, 0]], dtype=float)
+    print mat1 * 2.5
+    print('MTBDD:')
+    from diagram_computations import scalar_multiply_diagram
+    mtbdd = MTBDD()
+    node1 = mtbdd.create(mat1, 0)
+    node2 = scalar_multiply_diagram(node1, 2.5)
+    print node2.to_matrix(7, True)
+    print('EVBDD:')
+    evbdd = EVBDD()
+    node4 = evbdd.create(mat1, 0)
+    node5 = scalar_multiply_diagram(node4, 2.5)
+    print node5.to_matrix(7, True)
+
+
 if __name__ == "__main__":
-    test_reduction()
+    test_multiplication()
     # run_tests2()
     # run_tests()
