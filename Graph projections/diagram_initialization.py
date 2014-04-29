@@ -39,8 +39,6 @@ def get_non_null_components(matrix, null_value, no_vars):
     row = np.arange(0, mat.shape[0], 1)
     col = np.arange(0, mat.shape[1], 1)
     row, col = [np.tile(row, len(col)), np.repeat(col, len(row))]
-    print row
-    print col
     leaves = []
     indices = []
     is_vector = no_vars[2] == 0

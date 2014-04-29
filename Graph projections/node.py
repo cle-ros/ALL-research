@@ -291,6 +291,31 @@ class Node(object):
         """
         return self.dtype.sum(self, **offset)
 
+    def create_leaf(self, value):
+        """
+        A convenience method
+        """
+        return self.leaf_type(value, value, diagram_type=self.dtype)
+
+    def create_node(self, depth=None):
+        """
+        A convenience method
+        """
+        if not depth is None:
+            return type(self)(diagram_type=self.dtype, nv=self.null_value, depth=depth)
+        else:
+            return type(self)(diagram_type=self.dtype, nv=self.null_value)
+
+    def complexity(self, mode='#nodes'):
+        """
+        Calculates and returns the complexity of the diagram
+        """
+        if mode == '#nodes':
+            return len(self.nodes)
+
+    def plot(self, name):
+        raise NotImplementedError
+
 
 class BNode(Node):
     """
@@ -413,11 +438,11 @@ class BNode(Node):
                 return None, 0
             # checking whether the node is a leaf
             elif node.is_leaf():
-                return self.dtype.to_mat(node, offset), 1
+                return node.dtype.to_mat(node, offset), 1
             else:
                 # the recursive call
-                nfork, n_cshape = to_mat_rec(node.n, self.dtype.to_mat(node, node.no, offset), nv)
-                pfork, p_cshape = to_mat_rec(node.p, self.dtype.to_mat(node, node.po, offset), nv)
+                nfork, n_cshape = to_mat_rec(node.n, node.dtype.to_mat(node, node.no, offset), nv)
+                pfork, p_cshape = to_mat_rec(node.p, node.dtype.to_mat(node, node.po, offset), nv)
                 # getting the size for a missing fork
                 mat_shape = 2*max(n_cshape, p_cshape)
                 if pfork is None:
@@ -481,6 +506,31 @@ class BNode(Node):
         decomposition = decompose_paths_rec(self, np.array([]))
         return decomposition.reshape((decomposition.shape[0]/(self.d+1), self.d+1))
 
+    def plot(self, name):
+        """
+        This function plots the diagram using GraphViz and DOT (https://en.wikipedia.org/wiki/DOT_language)
+        """
+        import pydot as pd
+        graph = pd.Dot('diagram', graph_type='digraph')
+        for node in self.nodes:
+            if node.is_leaf():
+                graph.add_node(pd.Node(str(node.__hash__()), label=str(node.value), shape='box'))
+            else:
+                graph.add_node(pd.Node(str(node.__hash__()), label='L'+str(node.d)))
+                if node.n:
+                    if node.no:
+                        graph.add_edge(pd.Edge(str(node.__hash__()), str(node.n.__hash__()), label=str(node.no), style='dashed'))
+                    else:
+                        graph.add_edge(pd.Edge(str(node.__hash__()), str(node.n.__hash__()), style='dashed'))
+                if node.p:
+                    if node.po:
+                        graph.add_edge(pd.Edge(str(node.__hash__()), str(node.p.__hash__()), label=str(node.po)))
+                    else:
+                        graph.add_edge(pd.Edge(str(node.__hash__()), str(node.p.__hash__())))
+
+        file_name = './plots/' + name + '.png'
+        graph.write_png(file_name)
+
 
 class Leaf(Node):
     """
@@ -498,6 +548,7 @@ class Leaf(Node):
         self.child_nodes = None
         self.value = val
         self.shape = [1, 1]
+        self.d = 0
 
     def add_child(self, child, number, offset=None):
         """

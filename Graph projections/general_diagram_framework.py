@@ -4,7 +4,7 @@
 """
 
 
-def apply(outer_node1, outer_node2, operation):
+def d_apply(outer_node1, outer_node2, operation):
     """
     This is the canonical apply algorithm as introduced by Bryant in 1988
     """

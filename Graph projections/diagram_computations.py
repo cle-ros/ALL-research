@@ -119,12 +119,14 @@ def add_diagrams(dia1, dia2, to_reduce=True, offset=[0, 0]):
             leaf = node1.leaf_type(value, value, diagram_type=node1.dtype)
             return leaf
         else:
-            # checking for the cases in which a fork exists in both diagrams
+            # creating the node
             node = type(node1)(diagram_type=node1.dtype, nv=node1.null_value)
-            # checking for the positive fork:
+            # computing the new offset
             n_offset, p_offset = node.dtype.add(node1, node2, ioffset)
+            # doing the recursive call
             node.n = add_binary_diagrams_rec(node1.n, node2.n, [0, 0, 0])
             node.p = add_binary_diagrams_rec(node1.p, node2.p, [0, 0, 0])
+            # setting the new offsets
             node.no = n_offset
             node.po = p_offset
             node.d = node1.d
@@ -136,15 +138,65 @@ def add_diagrams(dia1, dia2, to_reduce=True, offset=[0, 0]):
     return diagram
 
 
-def elementwise_multiply_diagrams(dia1, dia2, **options):
+def elementwise_multiply_diagrams_evbdd(dia1, dia2, loffset=0, roffset=0, to_reduce=True, with_offset=False):
     """
     This method multiplies two diagrams element-wise, i.e. the MATLAB .* operation.
     :param dia1:
     :param dia2:
     :return: a diagram representing the element-wise matrix product
     """
+    from binary_diagram import EVBDD
 #    opt = convert_options(options)
-    def elementwise_multiply_diagrams_rec(node1, node2, found_leaves):
+
+    def elementwise_multiply_diagrams_evbdd_rec(node1, node2, offset1, offset2):
+        """
+        This function multiplies two subdiagrams specified by the respective root_node, node1/node2
+        """
+        # idea: go down both diagrams. Collect the first node's offsets. Once reached the final point, take the entire
+        # offset for the first node, multiply it with the second node's value, and return it to the higher recursion
+        # level
+        # checking for the type of node:
+        # iff both diagrams are nodes
+        if node1.n.is_leaf():
+            # making sure that leaves are not added multiple times
+            n_value = (node1.n.value + node1.no + offset1) * (node2.n.value + node2.no + offset2)
+            p_value = (node1.p.value + node1.po + offset1) * (node2.p.value + node2.po + offset2)
+            node = node1.create_node()
+            node.d = 1
+            node, offset = EVBDD.create_leaves(node, [n_value, p_value])
+            return node, offset, 0
+        else:
+            # computing the previous sum
+            # go_on prevents to much computation for some diagram types where a recursive multiplication is not
+            # necessary
+            node = node1.create_node()
+            node.n, n_offset, depth = elementwise_multiply_diagrams_evbdd_rec(node1.n, node2.n, node1.no + offset1, node2.no + offset2)
+            node.p, p_offset, depth = elementwise_multiply_diagrams_evbdd_rec(node1.p, node2.p, node1.po + offset1, node2.po + offset2)
+            depth += 1
+            node, offset = EVBDD.create_tuple(node, n_offset, p_offset)
+            node.d = depth
+            return node, offset, depth
+
+    diagram, f_offset, odepth = elementwise_multiply_diagrams_evbdd_rec(dia1, dia2, loffset, roffset)
+    # making sure that the entire diagram is not "off" by the final offset
+    if f_offset != 0 and with_offset is False:
+        EVBDD.include_final_offset(diagram, f_offset)
+    if to_reduce:
+        diagram.dtype.reduce(diagram)
+    if with_offset:
+        return diagram, f_offset
+    return diagram
+
+
+def elementwise_multiply_diagrams_mtbdd(dia1, dia2, loffset=0, roffset=0, to_reduce=True, with_offset=False):
+    """
+    This method multiplies two diagrams element-wise, i.e. the MATLAB .* operation.
+    :param dia1:
+    :param dia2:
+    :return: a diagram representing the element-wise matrix product
+    """
+    # opt = convert_options(options)
+    def elementwise_multiply_diagrams_mtbdd_rec(node1, node2, found_leaves):
         """
         This function multiplies two subdiagrams specified by the respective root_node, node1/node2
         """
@@ -155,7 +207,7 @@ def elementwise_multiply_diagrams(dia1, dia2, **options):
             # making sure that leaves are not added multiple times
             if value in found_leaves:
                 return found_leaves[value]
-            leaf = node1.leaf_type(value, value)
+            leaf = node1.create_leaf(value)
             found_leaves[value] = leaf
             return leaf
         else:
@@ -163,18 +215,18 @@ def elementwise_multiply_diagrams(dia1, dia2, **options):
             node_p = node1.p and node2.p
             node_n = node1.n and node2.n
             if node_p or node_n:
-                node = type(node1)(node1.name, node1.null_value)
+                node = node1.create_node()
                 succ = False
                 # checking for the positive fork:
                 if node_p:
-                    p_edge = elementwise_multiply_diagrams_rec(node1.p, node2.p, found_leaves)
+                    p_edge = elementwise_multiply_diagrams_mtbdd_rec(node1.p, node2.p, found_leaves)
                     if p_edge:
                         node.p = p_edge
                         node.d = p_edge.d + 1
                         succ = True
                 # checking for the negative fork:
                 if node_n:
-                    n_edge = elementwise_multiply_diagrams_rec(node1.n, node2.n, found_leaves)
+                    n_edge = elementwise_multiply_diagrams_mtbdd_rec(node1.n, node2.n, found_leaves)
                     if n_edge:
                         node.n = n_edge
                         node.d = n_edge.d + 1
@@ -183,7 +235,13 @@ def elementwise_multiply_diagrams(dia1, dia2, **options):
                     return node
             return False
 
-    return elementwise_multiply_diagrams_rec(dia1, dia2, {})
+    diagram = elementwise_multiply_diagrams_mtbdd_rec(dia1, dia2, {})
+    # making sure that the entire diagram is not "off" by the final offset
+    if to_reduce:
+        diagram.dtype.reduce(diagram)
+    if with_offset:
+        return diagram, 0
+    return diagram
 
 
 def diagram_sum(node):
@@ -193,10 +251,16 @@ def diagram_sum(node):
     from node import Leaf
 
     def diagram_sum_rec(node1, offset):
+        """
+        The recursive pendant
+        """
         if isinstance(node1, Leaf):
+            # computing the leaf sum
             return node1.dtype.sum(node1, offset)
         else:
+            # computing the new offsets
             n_offset, p_offset = node1.dtype.sum(node1, offset)
+            # doing the recursive call
             n_value = diagram_sum_rec(node1.n, n_offset)
             p_value = diagram_sum_rec(node1.p, p_offset)
             return n_value + p_value
@@ -204,7 +268,7 @@ def diagram_sum(node):
     return diagram_sum_rec(node, 0)
 
 
-def multiply_by_column_vector(mat_diagram, vec_diagram):
+def multiply_by_column_vector(mat_diagram, vec_diagram, ooffset=0):
     """
     This function multiplies a matrix, represented by a diagram, with a vector, represented by a diagram.
     General idea:
@@ -214,9 +278,17 @@ def multiply_by_column_vector(mat_diagram, vec_diagram):
     :param mat_diagram: The diagram representing the matrix
     :param vec_diagram: The diagram representing the vector
     """
-    def multiply_bdiagram_by_vector_rec(matd, vecd):
+
+    from binary_diagram import MTBDD, EVBDD
+    if mat_diagram.dtype is MTBDD:
+        elementwise_multiply_diagrams = elementwise_multiply_diagrams_mtbdd
+    elif mat_diagram.dtype is EVBDD:
+        elementwise_multiply_diagrams = elementwise_multiply_diagrams_evbdd
+
+    def multiply_bdiagram_by_vector_rec(matd, vecd, offset):
         """
         The recursive function
+        :param offset:
         """
         try:
             matd.d is False
@@ -224,15 +296,15 @@ def multiply_by_column_vector(mat_diagram, vec_diagram):
             raise AttributeError
         if matd.d > vecd.d:
             # still selecting rows:
-            node = type(matd)('', matd.d-vecd.d)
+            node = matd.create_node(depth=matd.d-vecd.d)
             succ = False
             if matd.n:
-                n_edge = multiply_bdiagram_by_vector_rec(matd.n, vecd)
+                n_edge = multiply_bdiagram_by_vector_rec(matd.n, vecd, matd.dtype.collapse_node(matd.no, offset))
                 if n_edge:
                     node.n = n_edge
                     succ = True
             if matd.p:
-                p_edge = multiply_bdiagram_by_vector_rec(matd.p, vecd)
+                p_edge = multiply_bdiagram_by_vector_rec(matd.p, vecd, matd.dtype.collapse_node(matd.po, offset))
                 if p_edge:
                     node.p = p_edge
                     succ = True
@@ -241,14 +313,14 @@ def multiply_by_column_vector(mat_diagram, vec_diagram):
             return False
         else:
             # if a row is selected, compute the scalar-product (sum of .*)
-            mult_diags = elementwise_multiply_diagrams(matd, vecd)
+            mult_diags = elementwise_multiply_diagrams(matd, vecd, loffset=offset)
             if mult_diags:
-                value = diagram_sum(elementwise_multiply_diagrams(matd, vecd))
+                value = diagram_sum(mult_diags)
             else:
                 return False
-            leaf = matd.leaf_type(str(value), value)
+            leaf = matd.create_leaf(value)
             return leaf
-    return multiply_bdiagram_by_vector_rec(mat_diagram, vec_diagram)
+    return multiply_bdiagram_by_vector_rec(mat_diagram, vec_diagram, ooffset)
 
 
 def transpose_diagram(diagram, rows=None):
@@ -258,26 +330,28 @@ def transpose_diagram(diagram, rows=None):
     half, representing the horizontal variables.
     :param diagram:
     """
-    assert isinstance(diagram, BNode)
-    if diagram.p is False and diagram.n is False:
-        return copy.copy(diagram)
-    if rows is None:
-        rows1 = diagram.shape[0]
-    else:
-        rows1 = np.ceil(np.log2(rows))
-    paths = diagram.decompose_paths()
-    new_paths = np.hstack((paths[:, rows1:-1], paths[:, :rows1], paths[:, -1][None].T))
+    # assert isinstance(diagram, BNode)
+    # if diagram.p is False and diagram.n is False:
+    #     return copy.copy(diagram)
+    # if rows is None:
+    #     rows1 = diagram.shape[0]
+    # else:
+    #     rows1 = np.ceil(np.log2(rows))
+    # paths = diagram.decompose_paths()
+    # new_paths = np.hstack((paths[:, rows1:-1], paths[:, :rows1], paths[:, -1][None].T))
     # TODO: clean up the diagram creation code, and remove redundancies
-    node = type(diagram)('x')
-    node.null_value = diagram.null_value
-    var_names = np.append(get_var_names(new_paths.shape[1]-1, 'x'), '-1')
-    tmp_mat = np.vstack((var_names, new_paths))
-    append_nodes_recursively(node, tmp_mat, {})
-    if node.p:
-        node.d = node.p.d + 1
-    else:
-        node.d = node.n.d + 1
-    return node
+    # node = type(diagram)('x')
+    # node.null_value = diagram.null_value
+    # var_names = np.append(get_var_names(new_paths.shape[1]-1, 'x'), '-1')
+    # tmp_mat = np.vstack((var_names, new_paths))
+    # append_nodes_recursively(node, tmp_mat, {})
+    # if node.p:
+    #     node.d = node.p.d + 1
+    # else:
+    #     node.d = node.n.d + 1
+    # return node
+    d_instance = diagram.dtype()
+    return d_instance.create(diagram.to_matrix(rows).T, 0)
 
 
 def multiply_diagram(diag1, diag2, height, transpose=True):
@@ -291,7 +365,7 @@ def multiply_diagram(diag1, diag2, height, transpose=True):
     else:
         diag3 = diag2
 
-    def multiply_bdiagram_rec(node1, node2, w):
+    def multiply_bdiagram_rec(node1, node2, w, loffset=0, roffset=0):
         """
         The recursive function for multiplying two MTBDDs
         :param node1: the first diagram
@@ -305,12 +379,12 @@ def multiply_diagram(diag1, diag2, height, transpose=True):
             # multiplying rows by the other diagram
             succ = False
             if node1.n:
-                n_edge = multiply_by_column_vector(node2, node1.n)
+                n_edge = multiply_by_column_vector(node2, node1.n, loffset)
                 if n_edge:
                     node.n = n_edge
                     succ = True
             if node1.p:
-                p_edge = multiply_by_column_vector(node2, node1.p)
+                p_edge = multiply_by_column_vector(node2, node1.p, loffset)
                 if p_edge:
                     node.p = p_edge
                     succ = True
@@ -323,12 +397,12 @@ def multiply_diagram(diag1, diag2, height, transpose=True):
             node = type(node1)('x')
             succ = False
             if node1.p:
-                p_edge = multiply_bdiagram_rec(node1.p, node2, w)
+                p_edge = multiply_bdiagram_rec(node1.p, node2, w, loffset=node1.dtype.collapse_node(node1.po, loffset))
                 if p_edge:
                     node.p = p_edge
                     succ = True
             if node1.n:
-                n_edge = multiply_bdiagram_rec(node1.n, node2, w)
+                n_edge = multiply_bdiagram_rec(node1.n, node2, w, loffset=node1.dtype.collapse_node(node1.no, loffset))
                 if n_edge:
                     node.n = n_edge
                     succ = True
