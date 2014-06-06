@@ -182,8 +182,9 @@ def test_multiplication():
     from binary_diagram import MTBDD, EVBDD
 
     mat1 = np.array([[1, 7, 0], [0, -1, 0], [2, 8, 1], [1, 5, 0], [1, 5, 0], [1, 5, 0], [1, 15, 0]], dtype=float)
-    print mat1 * 2.5
+    print mat1
     print 'Scalar Multiplication: ~~~~~~~~~~~~~~'
+    print mat1 * 2.5
     print('MTBDD:')
     from diagram_computations import scalar_multiply_diagram, elementwise_multiply_diagrams_evbdd, \
         elementwise_multiply_diagrams_mtbdd, multiply_by_column_vector, multiply_diagram
@@ -436,10 +437,10 @@ def plot_results():
 
 if __name__ == "__main__":
     # plot_results()
-    plot_graphs()
+    # plot_graphs()
     # test_performance()
     # test_addition()
     # general_tests()
-    # test_multiplication()
+    test_multiplication()
     # run_tests2()
     # run_tests()

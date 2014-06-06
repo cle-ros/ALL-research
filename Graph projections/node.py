@@ -316,6 +316,106 @@ class Node(object):
     def plot(self, name):
         raise NotImplementedError
 
+    def decompose_paths(self):
+        """
+        This function decomposes a diagram into the set of its paths from root to leaves
+        :param self:
+        """
+        if self.child_nodes == {}:
+            return []
+
+        import numpy as np
+
+        def decompose_paths_rec(node_inner, path):
+            """
+            This function does the recursive create_path of the decomposition
+            :param node_inner:
+            :param path:
+            """
+            if node_inner.is_leaf():
+                path = np.append(path, str(node_inner.value))
+                return path[None]
+            else:
+                paths = np.array([])
+                for edge_name in node_inner.child_nodes:
+                    new_path = np.append(path, str(edge_name))
+                    paths = np.append(paths, decompose_paths_rec(node_inner.child_nodes[edge_name], new_path))
+            return paths
+
+        decomposition = decompose_paths_rec(self, np.array([]))
+        return decomposition.reshape((decomposition.shape[0]/(self.d+1), self.d+1))
+
+    def to_matrix(self, rows=1, cropping=False):
+        """
+        This method returns the matrix represented by the diagram
+        :param rows:
+        :param cropping:
+        """
+        import numpy as np
+
+        # covering zero-matrices
+        if self.child_nodes == {}:
+            return np.array([self.null_value])
+
+        def to_mat_rec(node, offset, nv):
+            # making sure the node exists
+            if not node:
+                return None, 0
+            # checking whether the node is a leaf
+            elif node.is_leaf():
+                return node.dtype.to_mat(node, offset), 1
+            else:
+                # the recursive call
+                fork = {}
+                # dShape = {}
+                mat_shape = node.dtype.base**node.d
+                base_mat = np.ones(mat_shape)*nv
+                if self.offsets == {}:
+                    pos_counter = 0
+                    for edge_name in node.child_nodes:
+                        base_mat[pos_counter*mat_shape/node.dtype.base:(pos_counter+1)*mat_shape/node.dtype.base], _ = \
+                            to_mat_rec(node.child_nodes[edge_name], node.dtype.to_mat(node, 0, 0), nv)
+                        pos_counter += 1
+                else:
+                    pos_counter = 0
+                    for edge_name in node.child_nodes:
+                        base_mat[pos_counter*mat_shape/node.dtype.base:(pos_counter+1)*mat_shape/node.dtype.base], _ = \
+                            to_mat_rec(node.child_nodes[edge_name],
+                                       node.dtype.to_mat(node, node.offsets[edge_name], offset), nv)
+                        pos_counter += 1
+
+                # nfork, n_cshape = to_mat_rec(node.n, node.dtype.to_mat(node, node.no, offset), nv)
+                # pfork, p_cshape = to_mat_rec(node.p, node.dtype.to_mat(node, node.po, offset), nv)
+                # getting the size for a missing fork
+                # mat_shape = node.dtype.base**node.d
+                # base_mat = np.ones(mat_shape)*nv
+                # for i in range(node.dtype.base):
+                #     base_mat[i*mat_shape/node.dtype.base:(i+1)*mat_shape/node.dtype.base] = fork[]
+                # # mat_shape = 2*max(n_cshape, p_cshape)
+                # if pfork is None:
+                #     pfork = np.ones(n_cshape)*nv
+                # if nfork is None:
+                #     nfork = np.ones(p_cshape)*nv
+                # # deciding whether the matrices shall be horizontally or vertically concatenated
+                # return np.concatenate((nfork, pfork), 1), mat_shape
+                return base_mat, mat_shape
+
+        result, shape = to_mat_rec(self, 0, self.null_value)
+        rows = 2**np.ceil(np.log2(rows))
+        result = np.reshape(result, (rows, shape/rows))
+        # if desired, crop the result of all zero columns/rows in the lower right
+        if cropping and not rows == 1:
+            uncropped = True
+            while uncropped:
+                uncropped = False
+                if (result[:, -1] == 0).all():
+                    result = result[:, :-1]
+                    uncropped = True
+                if (result[-1, :] == 0).all():
+                    result = result[:-1, :]
+                    uncropped = True
+        return result
+
 
 class BNode(Node):
     """
@@ -419,92 +519,58 @@ class BNode(Node):
         :param offset:
         """
         self.offsets[0] = offset
-
-    def to_matrix(self, rows=1, cropping=False):
-        """
-        This method returns the matrix represented by the diagram
-        :param rows:
-        :param cropping:
-        """
-        import numpy as np
-
-        # covering zero-matrices
-        if not self.p and not self.n:
-            return np.array([self.null_value])
-
-        def to_mat_rec(node, offset, nv):
-            # making sure the node exists
-            if not node:
-                return None, 0
-            # checking whether the node is a leaf
-            elif node.is_leaf():
-                return node.dtype.to_mat(node, offset), 1
-            else:
-                # the recursive call
-                nfork, n_cshape = to_mat_rec(node.n, node.dtype.to_mat(node, node.no, offset), nv)
-                pfork, p_cshape = to_mat_rec(node.p, node.dtype.to_mat(node, node.po, offset), nv)
-                # getting the size for a missing fork
-                mat_shape = 2*max(n_cshape, p_cshape)
-                if pfork is None:
-                    pfork = np.ones(n_cshape)*nv
-                if nfork is None:
-                    nfork = np.ones(p_cshape)*nv
-                # deciding whether the matrices shall be horizontally or vertically concatenated
-                return np.concatenate((nfork, pfork), 1), mat_shape
-
-        result, shape = to_mat_rec(self, 0, self.null_value)
-        rows = 2**np.ceil(np.log2(rows))
-        result = np.reshape(result, (rows, shape/rows))
-        # if desired, crop the result of all zero columns/rows in the lower right
-        if cropping and not rows == 1:
-            uncropped = True
-            while uncropped:
-                uncropped = False
-                if (result[:, -1] == 0).all():
-                    result = result[:, :-1]
-                    uncropped = True
-                if (result[-1, :] == 0).all():
-                    result = result[:-1, :]
-                    uncropped = True
-        return result
+    #
+    # def to_matrix(self, rows=1, cropping=False):
+    #     """
+    #     This method returns the matrix represented by the diagram
+    #     :param rows:
+    #     :param cropping:
+    #     """
+    #     import numpy as np
+    #
+    #     # covering zero-matrices
+    #     if not self.p and not self.n:
+    #         return np.array([self.null_value])
+    #
+    #     def to_mat_rec(node, offset, nv):
+    #         # making sure the node exists
+    #         if not node:
+    #             return None, 0
+    #         # checking whether the node is a leaf
+    #         elif node.is_leaf():
+    #             return node.dtype.to_mat(node, offset), 1
+    #         else:
+    #             # the recursive call
+    #             nfork, n_cshape = to_mat_rec(node.n, node.dtype.to_mat(node, node.no, offset), nv)
+    #             pfork, p_cshape = to_mat_rec(node.p, node.dtype.to_mat(node, node.po, offset), nv)
+    #             # getting the size for a missing fork
+    #             mat_shape = 2*max(n_cshape, p_cshape)
+    #             if pfork is None:
+    #                 pfork = np.ones(n_cshape)*nv
+    #             if nfork is None:
+    #                 nfork = np.ones(p_cshape)*nv
+    #             # deciding whether the matrices shall be horizontally or vertically concatenated
+    #             return np.concatenate((nfork, pfork), 1), mat_shape
+    #
+    #     result, shape = to_mat_rec(self, 0, self.null_value)
+    #     rows = 2**np.ceil(np.log2(rows))
+    #     result = np.reshape(result, (rows, shape/rows))
+    #     # if desired, crop the result of all zero columns/rows in the lower right
+    #     if cropping and not rows == 1:
+    #         uncropped = True
+    #         while uncropped:
+    #             uncropped = False
+    #             if (result[:, -1] == 0).all():
+    #                 result = result[:, :-1]
+    #                 uncropped = True
+    #             if (result[-1, :] == 0).all():
+    #                 result = result[:-1, :]
+    #                 uncropped = True
+    #     return result
 
     @property
     def m(self):
         return self.to_matrix()
-
-    def decompose_paths(self):
-        """
-        This function decomposes a diagram into the set of its paths from root to leaves
-        :param self:
-        """
-        if self.p is False and self.n is False:
-            return []
-
-        import numpy as np
-
-        def decompose_paths_rec(node_inner, path):
-            """
-            This function does the recursive create_path of the decomposition
-            :param node_inner:
-            :param path:
-            """
-            if node_inner.is_leaf():
-                path = np.append(path, str(node_inner.value))
-                return path[None]
-            else:
-                paths = np.array([])
-                if node_inner.p:
-                    new_path = np.append(path, '1')
-                    p_paths = decompose_paths_rec(node_inner.p, new_path)
-                    paths = np.append(paths, p_paths)
-                if node_inner.n:
-                    new_path = np.append(path, '0')
-                    n_paths = decompose_paths_rec(node_inner.n, new_path)
-                    paths = np.append(paths, n_paths)
-            return paths
-
-        decomposition = decompose_paths_rec(self, np.array([]))
-        return decomposition.reshape((decomposition.shape[0]/(self.d+1), self.d+1))
 
     def plot(self, name):
         """

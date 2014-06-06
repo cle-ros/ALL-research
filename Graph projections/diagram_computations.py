@@ -164,7 +164,7 @@ def elementwise_multiply_diagrams_evbdd(dia1, dia2, loffset=0, roffset=0, to_red
             node = node1.create_node()
             node.d = 1
             node, offset = EVBDD.create_leaves(node, [n_value, p_value])
-            return node, offset, 0
+            return node, offset, 1
         else:
             # computing the previous sum
             # go_on prevents to much computation for some diagram types where a recursive multiplication is not
@@ -291,24 +291,27 @@ def multiply_by_column_vector(mat_diagram, vec_diagram, ooffset=0):
         :param offset:
         """
         try:
-            matd.d is False
+            matd.d is None
         except AttributeError:
             raise AttributeError
         if matd.d > vecd.d:
             # still selecting rows:
-            node = matd.create_node(depth=matd.d-vecd.d)
+            node = matd.create_node()
             succ = False
             if matd.n:
                 n_edge = multiply_bdiagram_by_vector_rec(matd.n, vecd, matd.dtype.collapse_node(matd.no, offset))
                 if n_edge:
                     node.n = n_edge
+                    depth = n_edge.d + 1
                     succ = True
             if matd.p:
                 p_edge = multiply_bdiagram_by_vector_rec(matd.p, vecd, matd.dtype.collapse_node(matd.po, offset))
                 if p_edge:
                     node.p = p_edge
+                    depth = p_edge.d + 1
                     succ = True
             if succ:
+                node.d = depth
                 return node
             return False
         else:
@@ -373,26 +376,29 @@ def multiply_diagram(diag1, diag2, height, transpose=True):
         :param w: the width of the matrix, in 2^n
         :return: their product
         """
-        if node1.d == w+1:
+        if node1.d == w:
             # selected rows of node1
-            node = type(node1)('x')
+            node = node1.create_node()
             # multiplying rows by the other diagram
             succ = False
             if node1.n:
                 n_edge = multiply_by_column_vector(node2, node1.n, loffset)
                 if n_edge:
+                    depth = n_edge.d + 1
                     node.n = n_edge
                     succ = True
             if node1.p:
                 p_edge = multiply_by_column_vector(node2, node1.p, loffset)
                 if p_edge:
+                    depth = p_edge.d + 1
                     node.p = p_edge
                     succ = True
             if succ:
+                node.d = depth
                 return node
             else:
                 return False
-        elif node1.d > w+1:
+        elif node1.d > w:
             # if row-blocks are selected, go further down
             node = type(node1)('x')
             succ = False
@@ -400,13 +406,16 @@ def multiply_diagram(diag1, diag2, height, transpose=True):
                 p_edge = multiply_bdiagram_rec(node1.p, node2, w, loffset=node1.dtype.collapse_node(node1.po, loffset))
                 if p_edge:
                     node.p = p_edge
+                    depth = p_edge.d + 1
                     succ = True
             if node1.n:
                 n_edge = multiply_bdiagram_rec(node1.n, node2, w, loffset=node1.dtype.collapse_node(node1.no, loffset))
                 if n_edge:
                     node.n = n_edge
+                    depth = n_edge.d + 1
                     succ = True
             if succ:
+                node.d = depth
                 return node
             else:
                 return False

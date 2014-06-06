@@ -7,6 +7,7 @@ Created on Fri Feb 14 13:11:22 2014
 
 
 class BinaryDiagram:
+    base = 2
     def __init__(self, nt, lt):
         """
         The init method
@@ -108,10 +109,10 @@ class BinaryDiagram:
 
         def create_diagram_rec(values):
             node = self.node_type('', diagram_type=self.__class__)
-            entry_length = len(values)/2
+            entry_length = len(values)/self.__class__.base
             if entry_length == 1:
                 node, offset = self.create_leaves(node, values)
-                node.d = depth = 0
+                node.d = depth = 1
             else:
                 # somewhere around here the create_tuple has to be used.
                 node.p, p_offset, depth = create_diagram_rec(values[entry_length:])
@@ -121,7 +122,7 @@ class BinaryDiagram:
                 node.d = depth
             return node, offset, depth
 
-        diagram, f_offset, d = create_diagram_rec(leaves)
+        diagram, f_offset, _ = create_diagram_rec(leaves)
 
         # making sure that the entire diagram is not "off" by the final offset
         if f_offset != 0:
