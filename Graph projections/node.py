@@ -13,7 +13,7 @@ class Node(object):
     for the specific case, i.e. binary nodes (see class BNode))
     """
     properties = {}
-    from binary_diagram import MTBDD
+    from diagram_binary import MTBDD
 
     def __init__(self, denominator='', diagram_type=MTBDD, depth=None, nv=0, mat=None, var='x'):
         """        
@@ -116,10 +116,28 @@ class Node(object):
             self.leaves_set = childrens_leaves
             return childrens_leaves
 
+    def reinitialize_nodes(self):
+        """
+        This method returns the nodes_set, but reinitializes it first (if it has changed, e.g. via reduction)
+        :rtype : array of leaf-nodes
+        :return: set of all nodes in the diagram
+        """
+        # is the current node a leaf?
+        if self.is_leaf():
+            return {self}
+        # if not, recursively return all children
+        else:
+            children_nodes = {self}
+            for child in self.child_nodes:
+                children_nodes = children_nodes.union(self.child_nodes[child].reinitialize_nodes())
+            # storing it for later use
+            self.nodes_set = children_nodes
+            return children_nodes
+
     @property
     def nodes(self):
         """
-        This property returns the leaves_array and the end of this diagram
+        This property returns the nodes_set
         :rtype : array of leaf-nodes
         :return:
         """
@@ -161,23 +179,6 @@ class Node(object):
         #raise NoSuchNode('The leaf '+str(leaf)+' is not a leaf of node ' + self.name)
         raise NoSuchNode('The object '+str(node)+' is not a leaf of node ' + self.name)
 
-    def reinitialize_nodes(self):
-        """
-        This method reinitializes the leaf-array in case some operation on the diagram changed it
-        :return: set of all leave nodes
-        """
-        # is the current node a leaf?
-        if self.is_leaf():
-            return {self}
-        # if not, recursively return all children
-        else:
-            children_nodes = {self}
-            for child in self.child_nodes:
-                children_nodes = children_nodes.union(self.child_nodes[child].reinitialize_nodes())
-            # storing it for later use
-            self.nodes_set = children_nodes
-            return children_nodes
-
     def is_child(self, node):
         """
         This function checks whether a node already is a child of the given node
@@ -210,6 +211,7 @@ class Node(object):
         :return:
         """
         subdiagrams = []
+
         def get_sds_rec(node, sds, level, cur_level):
             if level == cur_level:
                 sds.append(node)
@@ -363,18 +365,25 @@ class Node(object):
                 return None, 0
             # checking whether the node is a leaf
             elif node.is_leaf():
+                # print 'leaf value:      ' + str(node.value)
+                # print 'leaf depth:      ' + str(node.d)
                 return node.dtype.to_mat(node, offset), 1
             else:
                 # the recursive call
-                fork = {}
-                # dShape = {}
+                # print 'depth in to mat: ' + str(node.d)
                 mat_shape = node.dtype.base**node.d
+                # print 'matrix shape   : ' + str(mat_shape)
                 base_mat = np.ones(mat_shape)*nv
                 if self.offsets == {}:
                     pos_counter = 0
                     for edge_name in node.child_nodes:
-                        base_mat[pos_counter*mat_shape/node.dtype.base:(pos_counter+1)*mat_shape/node.dtype.base], _ = \
-                            to_mat_rec(node.child_nodes[edge_name], node.dtype.to_mat(node, 0, 0), nv)
+                        a, _ = to_mat_rec(node.child_nodes[edge_name], node.dtype.to_mat(node, 0, 0), nv)
+                        b = base_mat[pos_counter*mat_shape/node.dtype.base:(pos_counter+1)*mat_shape/node.dtype.base]
+                        # print 'recursion depth: ' + str(node.d)
+                        # print 'child depth    : ' + str(node.child_nodes[edge_name].d)
+                        # print 'target mat size: ' + str(a.shape)
+                        # print 'base mat size:   ' + str(b.shape)
+                        base_mat[pos_counter*mat_shape/node.dtype.base:(pos_counter+1)*mat_shape/node.dtype.base] = a
                         pos_counter += 1
                 else:
                     pos_counter = 0
@@ -401,7 +410,7 @@ class Node(object):
                 return base_mat, mat_shape
 
         result, shape = to_mat_rec(self, 0, self.null_value)
-        rows = 2**np.ceil(np.log2(rows))
+        rows = self.dtype.base**np.ceil(np.log(rows)/np.log(self.dtype.base))
         result = np.reshape(result, (rows, shape/rows))
         # if desired, crop the result of all zero columns/rows in the lower right
         if cropping and not rows == 1:
@@ -416,12 +425,16 @@ class Node(object):
                     uncropped = True
         return result
 
+    @property
+    def m(self):
+        return self.to_matrix()
+
 
 class BNode(Node):
     """
     This class extends Node for binary graphs
     """
-    from binary_diagram import MTBDD
+    from diagram_binary import MTBDD
 
     def __init__(self, denominator='', diagram_type=MTBDD, depth=None, nv=0, mat=None, var=None):
         """
@@ -568,10 +581,6 @@ class BNode(Node):
     #                 uncropped = True
     #     return result
 
-    @property
-    def m(self):
-        return self.to_matrix()
-
     def plot(self, name):
         """
         This function plots the diagram using GraphViz and DOT (https://en.wikipedia.org/wiki/DOT_language)
@@ -602,9 +611,8 @@ class Leaf(Node):
     """
     This special node-type is reserved for modeling the leaves_array of the diagram
     """
-    from binary_diagram import MTBDD
 
-    def __init__(self, denominator, val, diagram_type=MTBDD):
+    def __init__(self, denominator, val, diagram_type):
         """
         Simply calles the super method and sets the special attribute "value"
         :param denominator:
@@ -638,7 +646,7 @@ class BLeaf(Leaf):
     """
     A special class for leaves_array in binary diagrams
     """
-    from binary_diagram import MTBDD
+    from diagram_binary import MTBDD
 
     def __init__(self, denominator, val, diagram_type=MTBDD):
         Leaf.__init__(self, denominator, val, diagram_type=diagram_type)
