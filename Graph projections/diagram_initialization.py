@@ -5,7 +5,7 @@
 
 import numpy as np
 import re
-from diagram_matrix_and_variable_operations import get_req_vars, get_var_names, expand_matrix2n
+from diagram_matrix_and_variable_operations import get_req_vars, expand_matrix_exponential
 
 
 def get_conjunctions(leaves):
@@ -170,8 +170,8 @@ def initialize_diagram(node, matrix, null_value, var_string='x'):
     :return:
     """
     #TODO: clean up!
-    no_vars = get_req_vars(matrix)
-    matrix = expand_matrix2n(matrix, no_vars[1:], null_value)
+    no_vars = get_req_vars(matrix, 2)
+    matrix = expand_matrix_exponential(matrix, no_vars[1:], null_value, 2)
     # constructing the tree
     # adding the nodes, named x0,x1,...xn, where n is the number of required vars
     indices, leaves = get_non_null_components(matrix, null_value, no_vars)

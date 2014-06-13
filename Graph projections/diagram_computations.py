@@ -145,7 +145,7 @@ def elementwise_multiply_diagrams_evbdd(dia1, dia2, loffset=0, roffset=0, to_red
     :param dia2:
     :return: a diagram representing the element-wise matrix product
     """
-    from binary_diagram import EVBDD
+    from diagram import EVBDD
 #    opt = convert_options(options)
 
     def elementwise_multiply_diagrams_evbdd_rec(node1, node2, offset1, offset2):
@@ -279,7 +279,7 @@ def multiply_by_column_vector(mat_diagram, vec_diagram, ooffset=0):
     :param vec_diagram: The diagram representing the vector
     """
 
-    from binary_diagram import MTBDD, EVBDD
+    from diagram import MTBDD, EVBDD
     if mat_diagram.dtype is MTBDD:
         elementwise_multiply_diagrams = elementwise_multiply_diagrams_mtbdd
     elif mat_diagram.dtype is EVBDD:

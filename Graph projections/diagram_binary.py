@@ -1,27 +1,10 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Feb 14 13:11:22 2014
+__author__ = 'clemens'
 
-@author: clemens
-"""
+from diagram import Diagram
 
 
-class BinaryDiagram:
+class BinaryDiagram(Diagram):
     base = 2
-    def __init__(self, nt, lt):
-        """
-        The init method
-        :rtype : a copy of itself
-        """
-        self.node_type = nt
-        self.leaf_type = lt
-        # self.paths = self.get_path()
-
-    def get_path(self):
-        raise NotImplementedError
-
-    def create_leaves(self, parent_node, leaf_values):
-        raise NotImplementedError
 
     @staticmethod
     def reduce(node_o):
@@ -91,21 +74,25 @@ class BinaryDiagram:
         node_o.reinitialize_nodes()
         return node_o
 
-    def flatten(self):
-        raise NotImplementedError
-
-    def create(self, matrix, null_value, to_reduce=True):
+    def create(self, matrix, null_value, to_reduce=True, dec_digits=-1):
         """
         this function creates a diagram of the specified type of the given matrix
+        :param matrix:      The data to be represented
+        :param null_value:  The null value (for *-suppressed DDs)
+        :param to_reduce:   Whether the tree shall be represented as a diagram
+        :param dec_digits:  The number of decimal digits to round to
         """
         from diagram_initialization import get_req_vars
-        from diagram_matrix_and_variable_operations import expand_matrix2n
+        from diagram_matrix_and_variable_operations import expand_matrix_exponential
         # get the required number of vars
-        no_vars = get_req_vars(matrix)
+        no_vars = get_req_vars(matrix, 2)
         # expand the matrix to be of size 2^nx2^m
-        matrix = expand_matrix2n(matrix, no_vars[1:], null_value)
+        matrix = expand_matrix_exponential(matrix, no_vars[1:], null_value, 2)
         # get the not-suppressed values
         leaves = matrix.flatten()
+        if dec_digits != -1:
+            import numpy
+            numpy.round(leaves, dec_digits)
 
         def create_diagram_rec(values):
             node = self.node_type('', diagram_type=self.__class__)
@@ -132,53 +119,6 @@ class BinaryDiagram:
 
         return diagram
 
-    def create_tuple(self, node, n_offset, p_offset):
-        """
-        This method defines the general framework to branch. It relies on specific implementations for the different
-         binary diagram types
-        """
-        raise NotImplementedError
-
-    def to_mat(self, loffset, goffset):
-        raise NotImplementedError
-
-    def include_final_offset(self, offset):
-        raise NotImplementedError
-
-    def add(self, node1, offset=[0, 0]):
-        """
-        This function adds two nodes
-        :rtype : array of offsets (e.g. n-offset, p-offset)
-        :param node1: the first node
-        :param node2: the second node
-        :param offset: the parent offset
-        """
-        raise NotImplementedError
-
-    def sum(self, offset):
-        """
-        the helper function for summing a diagram
-        """
-        raise NotImplementedError
-
-    def scalar_mult(self, scalar):
-        """
-        The helper function for scalar multiplication
-        """
-        raise NotImplementedError
-
-    def mult(self, node):
-        """
-        The helper method for elementwise multiplication
-        """
-        raise NotImplementedError
-
-    def collaple_node(self, offset):
-        """
-        This function "opposes" the create-functions, i.e. it does the reverse, collapsing operation
-        """
-        raise NotImplementedError
-
 
 class MTBDD(BinaryDiagram):
     def __init__(self):
@@ -193,7 +133,7 @@ class MTBDD(BinaryDiagram):
         parent_node.p = self.leaf_type(leaf_values[1], leaf_values[1], diagram_type=MTBDD)
         return parent_node, 0
 
-    def create_tuple(self, node, n_offset, p_offset):
+    def create_tuple(self, node, offset):
         return node, 0
 
     @staticmethod
@@ -278,13 +218,13 @@ class EVBDD(BinaryDiagram):
         return parent_node, leaf_values[0]
 
     @staticmethod
-    def create_tuple(node, n_offset, p_offset):
+    def create_tuple(node, offset):
         """
         Computes the offset for a node, given the offset of its children
         """
         node.no = 0
-        node.po = p_offset - n_offset
-        return node, n_offset
+        node.po = offset[1] - offset[0]
+        return node, offset[0]
 
     @staticmethod
     def collapse_node(edge_offset, offset):

@@ -31,6 +31,7 @@ class Node(object):
         self.null_value = nv
         self.shape = (0, 0)
         self.paths = set()
+        self.hash_value = None
         if not var is None:
             self.variable = var
         if not mat is None:
@@ -104,6 +105,7 @@ class Node(object):
         This method reinitializes the leaf-array in case some operation on the diagram changed it
         :return: set of all leave nodes
         """
+        # TODO: merge reinit and creation of leaves and nodes, for one includes the other
         # is the current node a leaf?
         if self.is_leaf():
             return {self}
@@ -122,6 +124,7 @@ class Node(object):
         :rtype : array of leaf-nodes
         :return: set of all nodes in the diagram
         """
+        # TODO: merge reinit and creation of leaves and nodes, for one includes the other
         # is the current node a leaf?
         if self.is_leaf():
             return {self}
@@ -275,12 +278,6 @@ class Node(object):
 
         return paths_rec(self, '', [], refresh)
 
-    def __hash__(self):
-        """
-        A test function to make nodes hashable. The hash is the address of the python object.
-        """
-        return hash(str(self))
-
     def add(self, node, **offset):
         """
         This method adds the current node and the argument, returning a new diagram
@@ -429,8 +426,23 @@ class Node(object):
     def m(self):
         return self.to_matrix()
 
+    def __hash__(self):
+        """
+        A test function to make nodes hashable. The hash is the address of the python object.
+        """
+        if not self.hash_value is None:
+            return self.hash_value
+        elif isinstance(self, Leaf):
+            self.hash_value = hash(self.value)
+            return self.hash_value
+        else:
+            self.hash_value = hash(str([edge for edge in self.child_nodes]) + str(self.offsets) \
+                              + ''.join([repr(abs(self.child_nodes[i].__hash__())) for i in self.child_nodes]))
+            return self.hash_value
+
 
 class BNode(Node):
+
     """
     This class extends Node for binary graphs
     """

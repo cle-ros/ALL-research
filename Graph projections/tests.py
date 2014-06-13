@@ -18,7 +18,7 @@ def test_multiplication(number, max_size, sparsity):
     :return:
     """
     misses = []
-    from diagram_initialization import initialize_diagram, expand_matrix2n
+    from diagram_initialization import initialize_diagram, expand_matrix_exponential
     from diagram_computations import multiply_diagram
 
     for i in range(number):
@@ -42,7 +42,7 @@ def test_multiplication(number, max_size, sparsity):
         result = multiply_diagram(diag1, diag2, mat1.shape[1])
         result_mat = result.to_matrix(mat1.shape[0], False)
         if not (result_mat == [0]).all():
-            reference_result = expand_matrix2n(np.dot(mat1, mat2), np.log2(result_mat.shape), 0)
+            reference_result = expand_matrix_exponential(np.dot(mat1, mat2), np.log2(result_mat.shape), 0, 2)
             diff = np.max(np.abs(reference_result - result_mat))
             if not diff < 1e-10:
                 import code;
@@ -107,7 +107,7 @@ def run_tests2():
 
 
 def test_new_implementation():
-    from binary_diagram import MTBDD
+    from diagram import MTBDD
 
     mat1 = np.array([[1, 2, 0], [0, 3, 0], [0, 4, 1], [1, 5, 0], [1, 5, 0], [1, 5, 0], [1, 5, 0]])
     mtbdd = MTBDD()
@@ -117,7 +117,7 @@ def test_new_implementation():
 
 
 def test_reduction():
-    from binary_diagram import MTBDD, EVBDD
+    from diagram_binary import MTBDD, EVBDD
 
     mat1 = np.array([[1, 2, 0], [0, 1, 0], [2, 4, 1], [1, 5, 0], [1, 5, 0], [1, 5, 0], [1, 5, 0]], dtype=float)
     print mat1
@@ -148,7 +148,7 @@ def test_reduction():
 
 
 def test_addition():
-    from binary_diagram import MTBDD, EVBDD
+    from diagram import MTBDD, EVBDD
 
     mat1 = np.array([[1, 7, 0], [0, -1, 0], [2, 8, 1], [1, 5, 0], [1, 5, 0], [1, 5, 0], [1, 15, 0]], dtype=float)
     print mat1 + mat1
@@ -179,7 +179,7 @@ def test_addition():
 
 
 def test_multiplication():
-    from binary_diagram import MTBDD, EVBDD
+    from diagram import MTBDD, EVBDD
 
     mat1 = np.array([[1, 7, 0], [0, -1, 0], [2, 8, 1], [1, 5, 0], [1, 5, 0], [1, 5, 0], [1, 15, 0]], dtype=float)
     print mat1
@@ -235,7 +235,7 @@ def test_multiplication():
 
 
 def general_tests():
-    from binary_diagram import MTBDD, EVBDD
+    from diagram import MTBDD, EVBDD
 
     mtbdd = MTBDD()
     evbdd = EVBDD()
@@ -277,7 +277,7 @@ def test_power_method(iterations, episodes, max_size):
             # normalizing
             vec /= np.linalg.norm(vec)
             # creating the BDD representations
-            from binary_diagram import MTBDD, EVBDD
+            from diagram import MTBDD, EVBDD
             mtbdd = MTBDD()
             evbdd = EVBDD()
             node_mt = mtbdd.create(np.round(config.precision_elements/np.max(vec)*vec, config.precision_round), 0)
@@ -303,7 +303,7 @@ def test_power_method_sparse(iterations, episodes, max_size, sparsity):
             # normalizing
             vec /= np.linalg.norm(vec)
             # creating the BDD representations
-            from binary_diagram import MTBDD, EVBDD
+            from diagram import MTBDD, EVBDD
             mtbdd = MTBDD()
             evbdd = EVBDD()
             node_mt = mtbdd.create(np.round(config.precision_elements/np.max(vec)*vec, config.precision_round), 0)
@@ -379,7 +379,7 @@ def test_performance():
 def plot_graphs():
     # mat1 = np.array([[1, 4], [1, 4], [1, 4], [1, 4]])
     mat1 = np.random.random((4, 4))
-    from binary_diagram import MTBDD, EVBDD
+    from diagram import MTBDD, EVBDD
     mtbdd = MTBDD()
     evbdd = EVBDD()
     node1 = mtbdd.create(mat1, 0)
@@ -435,12 +435,51 @@ def plot_results():
     plt.show()
 
 
+def test_mddd():
+    from diagram_quarternary import MTQDD
+    mtqdd = MTQDD()
+    # mat1 = np.array([[1, 7, 0]], dtype=float)
+    # mat1 = np.array([[1, 7, 0], [0, -1, 0], [2, 8, 1], [1, 5, 0], [1, 5, 0], [1, 5, 0], [1, 15, 0]], dtype=float)
+    mat1 = np.random.random((3, 4))
+    # mat1 = np.random.random((49, 81))
+    mat1 = np.kron(np.kron(mat1, mat1), np.kron(mat1, mat1))
+    print 'Reference:'
+    print 'Complexity: ' + str(np.prod(mat1.shape))
+    # print mat1
+    print 'Result:'
+    diagram1 = mtqdd.create(mat1, 0, False)
+    # print diagram1.to_matrix(7, True)
+    print 'Complexity: ' + str(diagram1.complexity())
+    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    print 'Reduced:'
+    mtqdd.reduce(diagram1)
+    # import code; code.interact(local=dict(locals().items() + globals().items()))
+    # print diagram1.to_matrix(7, True)
+    print 'Complexity: ' + str(diagram1.complexity())
+    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    print 'Reduced and lossy:'
+    diagram2 = mtqdd.create(mat1, 0, True, dec_digits=2)
+    # print diagram2.to_matrix(7, True)
+    print 'Complexity: ' + str(diagram2.complexity())
+
+
+def test_hash():
+    from diagram_quarternary import MTQDD
+    mtqdd = MTQDD()
+    mat1 = np.array([[1, 7, 0], [0, -1, 0], [2, 8, 1], [1, 5, 0], [1, 5, 0], [1, 5, 0], [1, 15, 0]], dtype=float)
+    diagram1 = mtqdd.create(mat1, 0, False)
+    print diagram1.__hash__()
+
+
 if __name__ == "__main__":
+    # test_hash()
+    test_mddd()
+    # test_reduction()
     # plot_results()
     # plot_graphs()
     # test_performance()
     # test_addition()
     # general_tests()
-    test_multiplication()
+    # test_multiplication()
     # run_tests2()
     # run_tests()
