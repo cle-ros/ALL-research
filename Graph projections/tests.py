@@ -379,7 +379,7 @@ def test_performance():
 def plot_graphs():
     # mat1 = np.array([[1, 4], [1, 4], [1, 4], [1, 4]])
     mat1 = np.random.random((4, 4))
-    from diagram import MTBDD, EVBDD
+    from diagram_binary import MTBDD, EVBDD
     mtbdd = MTBDD()
     evbdd = EVBDD()
     node1 = mtbdd.create(mat1, 0)
@@ -436,13 +436,19 @@ def plot_results():
 
 
 def test_mddd():
-    from diagram_quarternary import MTQDD
-    mtqdd = MTQDD()
+    from diagram import MTxDD
+    from matrix_and_variable_operations import kronecker_expansion
+    mtqdd = MTxDD(3)
     # mat1 = np.array([[1, 7, 0]], dtype=float)
     # mat1 = np.array([[1, 7, 0], [0, -1, 0], [2, 8, 1], [1, 5, 0], [1, 5, 0], [1, 5, 0], [1, 15, 0]], dtype=float)
-    mat1 = np.random.random((3, 4))
-    # mat1 = np.random.random((49, 81))
-    mat1 = np.kron(np.kron(mat1, mat1), np.kron(mat1, mat1))
+    # mat1 = np.random.random((3, 4))
+    np.random.seed(0)
+    a = (729, 243)
+    mat1 = np.flatten(np.random.random(a))
+    # mat2 = np.random.random(a)
+    # x3gf1 = np.array([[1, 0, 0], [0, 2, 1], [2, 2, 2]])
+    # x3gfn = kronecker_expansion(x3gf1, target_mat=mat2)
+    # mat1 = np.dot(mat2, x3gfn)
     print 'Reference:'
     print 'Complexity: ' + str(np.prod(mat1.shape))
     # print mat1
@@ -464,16 +470,88 @@ def test_mddd():
 
 
 def test_hash():
-    from diagram_quarternary import MTQDD
-    mtqdd = MTQDD()
+    from diagram import MTxDD
+    mtqdd = MTxDD(4)
     mat1 = np.array([[1, 7, 0], [0, -1, 0], [2, 8, 1], [1, 5, 0], [1, 5, 0], [1, 5, 0], [1, 15, 0]], dtype=float)
     diagram1 = mtqdd.create(mat1, 0, False)
     print diagram1.__hash__()
 
 
+def pseudo_reduction():
+    basis_function = {
+        'id3'       : np.identity(3),
+        'gf3'       : np.array([[1, 0, 0], [0, 2, 1], [2, 2, 2]]),
+        'rmf3'      : np.array([[1, 0, 0], [1, 2, 0], [1, 1, 1]]),
+        # 'id4'       : np.identity(4),
+        # 'rmf4'      : np.array([[1, 0, 0, 0], [1, 3, 0, 0], [1, 2, 1, 0], [1, 1, 3, 3]])
+    }
+    from matrix_and_variable_operations import kronecker_expansion, expand_matrix_exponential, get_req_vars
+    from diagram_ternary import MT3DD, AEV3DD, MEV3DD
+
+    for dim in [9]:
+        np.random.seed(0)
+        print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+        print 'Dimensionality:   '+str(dim)+' x '+str(dim)
+        # mat = np.random.random((dim, dim))
+        mat = np.random.normal(loc=0.0, scale=5.0, size=(dim, dim))
+        mat_rounded = np.round(mat, 2)
+        print mat
+        for basis in basis_function:
+            mtqdd = MEV3DD()
+            print ' - ~ - ~ - ~ - ~ - ~ - ~ - ~ - ~ - ~ - ~ -'
+            print ' -~ ' + basis + ' ~-'
+            base = basis_function[basis].shape[0]
+            mat_basen = expand_matrix_exponential(mat, get_req_vars(mat, base)[1:], 0, base)
+            mat_basen = np.ndarray.flatten(mat_basen)
+            mat_basen_rounded = expand_matrix_exponential(mat_rounded, get_req_vars(mat, base)[1:], 0, base)
+            mat_basen_rounded = np.ndarray.flatten(mat_basen_rounded)
+            basis_expansion = kronecker_expansion(basis_function[basis], target_mat=mat_basen)
+            mat_base1 = np.dot(basis_expansion, mat_basen)
+            mat_base1_rounded = np.dot(basis_expansion, mat_basen_rounded)
+            dd1 = mtqdd.create(mat_base1, 0)
+            print '    Full Complexity:  ' + str(dd1.complexity())
+            print dd1.to_matrix(9)
+            dd2 = mtqdd.create(mat_base1_rounded, 0)
+            print '    Lossy Complexity: ' + str(dd2.complexity())
+
+
+def test_mevdds():
+    from diagram_ternary import MT3DD, AEV3DD, MEV3DD
+    mtdd = MT3DD()
+    aevdd = AEV3DD()
+    mevdd = MEV3DD()
+    mat1 = np.array([[1, 7, 0], [0, -1, 0], [2, 8, 1], [1, 5, 0], [1, 5, 0], [1, 5, 0], [1, 15, 0]], dtype=float)
+    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    print 'Reference:'
+    print 'Complexity: ' + str(np.prod(mat1.shape))
+    print mat1
+    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    print 'normal multi-terminal DD'
+    diagram1 = mtdd.create(mat1, 0, False)
+    print 'Complexity: ' + str(diagram1.complexity())
+    print diagram1.to_matrix(7)
+    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    print 'additive edge-value DD'
+    diagram2 = aevdd.create(mat1, 0, False)
+    print 'Complexity: ' + str(diagram2.complexity())
+    print diagram2.to_matrix(7)
+    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    print 'multiplicative edge-value DD'
+    diagram3 = mevdd.create(mat1, 0, False)
+    print 'Complexity: ' + str(diagram3.complexity())
+    print diagram3.to_matrix(7)
+    for node in diagram3.nodes:
+        if node.is_leaf():
+            print node.value
+        else:
+            print node.offsets
+
+
 if __name__ == "__main__":
+    test_mevdds()
+    # pseudo_reduction()
     # test_hash()
-    test_mddd()
+    # test_mddd()
     # test_reduction()
     # plot_results()
     # plot_graphs()

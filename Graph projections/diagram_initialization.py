@@ -5,7 +5,7 @@
 
 import numpy as np
 import re
-from diagram_matrix_and_variable_operations import get_req_vars, expand_matrix_exponential
+from matrix_and_variable_operations import get_req_vars, expand_matrix_exponential
 
 
 def get_conjunctions(leaves):

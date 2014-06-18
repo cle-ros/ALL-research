@@ -137,6 +137,26 @@ class Node(object):
             self.nodes_set = children_nodes
             return children_nodes
 
+    def reinitialize(self):
+        """
+        A method combining the functionality of both reinitialize_nodes and reinitialize_leaves
+        :return:
+        """
+        if self.is_leaf():
+            return {self}, {self}
+        else:
+            children_leaves = set()
+            children_nodes = {self}
+            # iterating over the children
+            for child in self.child_nodes:
+                cur_child_leaves, cur_child_nodes = self.child_nodes[child].reinitialize()
+                children_leaves = children_leaves.union(cur_child_leaves)
+                children_nodes = children_nodes.union(cur_child_nodes)
+            # storing the sets for later use
+            self.leaves = children_leaves
+            self.nodes = children_nodes
+            return children_leaves, children_nodes
+
     @property
     def nodes(self):
         """
@@ -258,16 +278,23 @@ class Node(object):
         """
 
         def paths_rec(node, path, encountered_paths, refr):
+            """
+            The recursive counterpart
+            """
             if node.paths == set() or refr:
+                # checking for leaves
                 if isinstance(node, Leaf):
                     node.paths = {node.value}
                     return path+str(node.value)
                 else:
+                    # iterating over child nodes
                     for child in node.child_nodes:
+                        # collecting offset strings
                         if not node.child_nodes[child][1] is None:
                             offset_string = str(node.child_nodes[child][1])
                         else:
                             offset_string = ''
+                        # creating the path string
                         new_path = path + str(child) + offset_string + ','
                         path1 = paths_rec(node.child_nodes[child][0], new_path, encountered_paths, refr)
                         if isinstance(path1, str):
@@ -362,25 +389,16 @@ class Node(object):
                 return None, 0
             # checking whether the node is a leaf
             elif node.is_leaf():
-                # print 'leaf value:      ' + str(node.value)
-                # print 'leaf depth:      ' + str(node.d)
                 return node.dtype.to_mat(node, offset), 1
             else:
                 # the recursive call
-                # print 'depth in to mat: ' + str(node.d)
                 mat_shape = node.dtype.base**node.d
-                # print 'matrix shape   : ' + str(mat_shape)
                 base_mat = np.ones(mat_shape)*nv
                 if self.offsets == {}:
                     pos_counter = 0
                     for edge_name in node.child_nodes:
-                        a, _ = to_mat_rec(node.child_nodes[edge_name], node.dtype.to_mat(node, 0, 0), nv)
-                        b = base_mat[pos_counter*mat_shape/node.dtype.base:(pos_counter+1)*mat_shape/node.dtype.base]
-                        # print 'recursion depth: ' + str(node.d)
-                        # print 'child depth    : ' + str(node.child_nodes[edge_name].d)
-                        # print 'target mat size: ' + str(a.shape)
-                        # print 'base mat size:   ' + str(b.shape)
-                        base_mat[pos_counter*mat_shape/node.dtype.base:(pos_counter+1)*mat_shape/node.dtype.base] = a
+                        base_mat[pos_counter*mat_shape/node.dtype.base:(pos_counter+1)*mat_shape/node.dtype.base], _ = \
+                            to_mat_rec(node.child_nodes[edge_name], node.dtype.to_mat(node, 0, 0), nv)
                         pos_counter += 1
                 else:
                     pos_counter = 0
@@ -390,20 +408,6 @@ class Node(object):
                                        node.dtype.to_mat(node, node.offsets[edge_name], offset), nv)
                         pos_counter += 1
 
-                # nfork, n_cshape = to_mat_rec(node.n, node.dtype.to_mat(node, node.no, offset), nv)
-                # pfork, p_cshape = to_mat_rec(node.p, node.dtype.to_mat(node, node.po, offset), nv)
-                # getting the size for a missing fork
-                # mat_shape = node.dtype.base**node.d
-                # base_mat = np.ones(mat_shape)*nv
-                # for i in range(node.dtype.base):
-                #     base_mat[i*mat_shape/node.dtype.base:(i+1)*mat_shape/node.dtype.base] = fork[]
-                # # mat_shape = 2*max(n_cshape, p_cshape)
-                # if pfork is None:
-                #     pfork = np.ones(n_cshape)*nv
-                # if nfork is None:
-                #     nfork = np.ones(p_cshape)*nv
-                # # deciding whether the matrices shall be horizontally or vertically concatenated
-                # return np.concatenate((nfork, pfork), 1), mat_shape
                 return base_mat, mat_shape
 
         result, shape = to_mat_rec(self, 0, self.null_value)
@@ -433,12 +437,22 @@ class Node(object):
         if not self.hash_value is None:
             return self.hash_value
         elif isinstance(self, Leaf):
-            self.hash_value = hash(self.value)
+            self.hash_value = Hash.leaf_hash(self)
             return self.hash_value
         else:
-            self.hash_value = hash(str([edge for edge in self.child_nodes]) + str(self.offsets) \
-                              + ''.join([repr(abs(self.child_nodes[i].__hash__())) for i in self.child_nodes]))
+            self.hash_value = Hash.node_hash(self)
             return self.hash_value
+
+
+class Hash:
+    @staticmethod
+    def leaf_hash(leaf):
+        return hash(leaf.value)
+
+    @staticmethod
+    def node_hash(node):
+        return hash(str([edge for edge in node.child_nodes]) + str(node.offsets) \
+                          + ''.join([repr(abs(node.child_nodes[i].__hash__())) for i in node.child_nodes]))
 
 
 class BNode(Node):
@@ -544,54 +558,6 @@ class BNode(Node):
         :param offset:
         """
         self.offsets[0] = offset
-    #
-    # def to_matrix(self, rows=1, cropping=False):
-    #     """
-    #     This method returns the matrix represented by the diagram
-    #     :param rows:
-    #     :param cropping:
-    #     """
-    #     import numpy as np
-    #
-    #     # covering zero-matrices
-    #     if not self.p and not self.n:
-    #         return np.array([self.null_value])
-    #
-    #     def to_mat_rec(node, offset, nv):
-    #         # making sure the node exists
-    #         if not node:
-    #             return None, 0
-    #         # checking whether the node is a leaf
-    #         elif node.is_leaf():
-    #             return node.dtype.to_mat(node, offset), 1
-    #         else:
-    #             # the recursive call
-    #             nfork, n_cshape = to_mat_rec(node.n, node.dtype.to_mat(node, node.no, offset), nv)
-    #             pfork, p_cshape = to_mat_rec(node.p, node.dtype.to_mat(node, node.po, offset), nv)
-    #             # getting the size for a missing fork
-    #             mat_shape = 2*max(n_cshape, p_cshape)
-    #             if pfork is None:
-    #                 pfork = np.ones(n_cshape)*nv
-    #             if nfork is None:
-    #                 nfork = np.ones(p_cshape)*nv
-    #             # deciding whether the matrices shall be horizontally or vertically concatenated
-    #             return np.concatenate((nfork, pfork), 1), mat_shape
-    #
-    #     result, shape = to_mat_rec(self, 0, self.null_value)
-    #     rows = 2**np.ceil(np.log2(rows))
-    #     result = np.reshape(result, (rows, shape/rows))
-    #     # if desired, crop the result of all zero columns/rows in the lower right
-    #     if cropping and not rows == 1:
-    #         uncropped = True
-    #         while uncropped:
-    #             uncropped = False
-    #             if (result[:, -1] == 0).all():
-    #                 result = result[:, :-1]
-    #                 uncropped = True
-    #             if (result[-1, :] == 0).all():
-    #                 result = result[:-1, :]
-    #                 uncropped = True
-    #     return result
 
     def plot(self, name):
         """

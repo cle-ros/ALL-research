@@ -10,7 +10,6 @@ class Diagram:
     """
     This is an interface/abstract class for all different diagram types
     """
-    base = 4
 
     def __init__(self, nt, lt):
         """
@@ -31,7 +30,8 @@ class Diagram:
     def to_mat(self, loffset, goffset):
         raise NotImplementedError
 
-    def include_final_offset(self, offset):
+    @staticmethod
+    def include_final_offset(node, offset):
         raise NotImplementedError
 
     def add(self, node1, offset):
@@ -108,6 +108,9 @@ class Diagram:
         node_o.reinitialize_nodes()
         return node_o
 
+    def transform_basis(self, blocks):
+        raise NotImplementedError
+
     def create(self, matrix, null_value, to_reduce=True, dec_digits=-1):
         """
         this function creates a diagram of the specified type of the given matrix
@@ -116,7 +119,7 @@ class Diagram:
         :param to_reduce:   Whether the tree shall be represented as a diagram
         :param dec_digits:  The number of decimal digits to round to
         """
-        from diagram_matrix_and_variable_operations import expand_matrix_exponential, get_req_vars
+        from matrix_and_variable_operations import expand_matrix_exponential, get_req_vars
         # get the required number of vars
         no_vars = get_req_vars(matrix, self.base)
         # expand the matrix to be of size 2^nx2^m
@@ -133,7 +136,7 @@ class Diagram:
             The recursive function
             """
             node = self.node_type('', diagram_type=self.__class__)
-            entry_length = len(values)/self.__class__.base
+            entry_length = len(values)/self.base
             if entry_length == 1:
                 node, new_offset = self.create_leaves(node, values)
                 node.d = depth = 1
@@ -141,16 +144,17 @@ class Diagram:
                 # somewhere around here the create_tuple has to be used.
                 offset = {}
                 depth = 0
-                block_len = len(values)/self.base
+                value_blocks = self.transform_basis(values)
                 # looping over the different elements in the base
                 for i in range(self.base):
-                    node.child_nodes[i], offset[i], depth = create_diagram_rec(values[i*block_len:(i+1)*block_len])
+                    node.child_nodes[i], offset[i], depth = create_diagram_rec(value_blocks[i])
                 depth += 1
                 node, new_offset = self.create_tuple(node, offset)
                 node.d = depth
             # because, in all likelihood, the following has to be calculated anyways, calculating it now will
             #  eliminate the need for another recursion through the diagram.
-            n = node.nodes
+            node.nodes
+            node.leaves
             node.__hash__()
             return node, new_offset, depth
 
@@ -164,3 +168,180 @@ class Diagram:
 
         return diagram
 
+
+class MTxDD(Diagram):
+    """
+    This is the class for all multi-terminal DDs of arbitrary basis. The basis is set at initialization
+    """
+    def __init__(self, basis):
+        from node import Node, Leaf
+        self.base = basis
+        Diagram.__init__(self, Node, Leaf)
+
+    def transform_basis(self, values):
+        """
+        The transform function to change the basis. For the MTxDDs, this is the identity projection.
+        :param blocks: the different sections of data to be transformed
+        :return: An unchanged array
+        """
+        block_len = len(values)/self.base
+        blocks = [values[i*block_len:(i+1)*block_len] for i in range(self.base)]
+        return blocks
+
+    def create_leaves(self, parent_node, leaf_values):
+        """
+        This function creates the leaves from the values given, and the node one step up
+        """
+        for i in range(self.base):
+            # if zero_suppressed
+            parent_node.child_nodes[i] = self.leaf_type(leaf_values[i], leaf_values[i], diagram_type=self.__class__)
+        return parent_node, 0
+
+    def create_tuple(self, node, offset):
+        return node, 0
+
+    @staticmethod
+    def to_mat(leaf, loffset=None, goffset=None):
+        """
+        The diagram-type specific function to convert nodes to matrices
+        """
+        import numpy as np
+        if leaf.is_leaf():
+            return np.array(leaf.value)[None]
+        else:
+            return None
+
+    @staticmethod
+    def include_final_offset(node, offset):
+        """
+        This function includes an offset remaining after creating the diagram into the diagram.
+        """
+        if offset != 0:
+            for leaf in node.leaves:
+                leaf.value = leaf.value + offset
+
+
+class AEVxDD(Diagram):
+    """
+    This is the class for all additive edge-valued DDs of arbitrary basis. The basis is set at initialization
+    """
+    def __init__(self, basis):
+        from node import Node, Leaf
+        self.base = basis
+        Diagram.__init__(self, Node, Leaf)
+
+    def create_leaves(self, parent_node, leaf_values):
+        """
+        This function creates the leaves from the values given, and the node one step up
+        """
+        from node import Leaf
+        parent_node.child_nodes[0] = Leaf(0, 0, diagram_type=AEVxDD)
+        parent_node.offsets[0] = 0
+        for i in range(1, self.base, 1):
+            parent_node.child_nodes[i] = parent_node.child_nodes[0]
+            parent_node.offsets[i] = leaf_values[i] - leaf_values[0]
+        return parent_node, leaf_values[0]
+
+    def create_tuple(self, node, offset):
+        """
+        Computes the offset for a node, given the offset of its children
+        """
+        node.offsets[0] = 0
+        for i in range(1, self.base, 1):
+            node.offsets[i] = offset[i] - offset[0]
+        return node, offset[0]
+
+    def transform_basis(self, values):
+        """
+        The transform function to change the basis. For the MTxDDs, this is the identity projection.
+        :param blocks: the different sections of data to be transformed
+        :return: An unchanged array
+        """
+        block_len = len(values)/self.base
+        blocks = [values[i*block_len:(i+1)*block_len] for i in range(self.base)]
+        return blocks
+
+    @staticmethod
+    def include_final_offset(node, offset):
+        """
+        This function includes an offset remaining after creating the diagram into the diagram.
+        """
+        for leaf in node.leaves:
+            leaf.value = leaf.value + offset
+
+    @staticmethod
+    def to_mat(node, goffset=0, loffset=0):
+        """
+        The diagram-type specific function to convert nodes to matrices
+        """
+        import numpy as np
+        from node import Node, Leaf
+        if isinstance(node, Leaf):
+            return np.array((node.value + goffset))[None]
+        elif isinstance(node, Node):
+            return loffset + goffset
+        else:
+            raise TypeError
+
+
+class MEVxDD(Diagram):
+    """
+    This is the class for all additive edge-valued DDs of arbitrary basis. The basis is set at initialization
+    """
+    def __init__(self, basis):
+        from node import Node, Leaf
+        self.base = basis
+        Diagram.__init__(self, Node, Leaf)
+
+    def create_leaves(self, parent_node, leaf_values):
+        """
+        This function creates the leaves from the values given, and the node one step up
+        """
+        from node import Leaf
+        parent_node.child_nodes[0] = Leaf(1, 1, diagram_type=AEVxDD)
+        parent_node.offsets[0] = 1
+        for i in range(1, self.base, 1):
+            parent_node.child_nodes[i] = parent_node.child_nodes[0]
+            parent_node.offsets[i] = leaf_values[i] / leaf_values[0]
+        return parent_node, leaf_values[0]
+
+    def create_tuple(self, node, offset):
+        """
+        Computes the offset for a node, given the offset of its children
+        """
+        node.offsets[0] = 1
+        for i in range(1, self.base, 1):
+            node.offsets[i] = offset[i] / offset[0]
+        return node, offset[0]
+
+    def transform_basis(self, values):
+        """
+        The transform function to change the basis. For the MTxDDs, this is the identity projection.
+        :param blocks: the different sections of data to be transformed
+        :return: An unchanged array
+        """
+        block_len = len(values)/self.base
+        blocks = [values[i*block_len:(i+1)*block_len] for i in range(self.base)]
+        return blocks
+
+    @staticmethod
+    def include_final_offset(node, offset):
+        """
+        This function includes an offset remaining after creating the diagram into the diagram.
+        """
+        for leaf in node.leaves:
+            leaf.value = leaf.value * offset
+
+    @staticmethod
+    def to_mat(node, goffset=1, loffset=1):
+        """
+        The diagram-type specific function to convert nodes to matrices
+        """
+        import numpy as np
+        from node import Node, Leaf
+        if isinstance(node, Leaf):
+            return np.array((node.value * goffset))[None]
+        elif isinstance(node, Node):
+            return loffset * goffset
+        else:
+            raise TypeError

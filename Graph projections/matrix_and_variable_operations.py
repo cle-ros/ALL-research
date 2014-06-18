@@ -47,7 +47,6 @@ def expand_matrix_exponential(matrix, demanded_size, null_value, base):
     """
     this function expands a given matrix to be of size base^n x base^m, filling the
     unknown values with the specified nullValue
-    :param base:
     :param matrix:
     :param demanded_size:
     :param null_value: The null value
@@ -62,3 +61,52 @@ def expand_matrix_exponential(matrix, demanded_size, null_value, base):
     except IndexError:
         mat[0:matrix.shape[0], 0] = matrix[None]
     return mat
+
+
+def kronecker_expansion(basis_matrix, target_mat=None, var=None):
+    """
+    This function computes the kronecker expansion of the given matrix, either to fit the size of the target matrix
+     or to basis^var size.
+    :param basis_matrix: the basis of the expansion
+    :param target_mat: the target matrix of size (m x n) to be fitted to (excludes var)
+    :param var: the required expansions (basis^var) (excludes dim)
+    :return: the expanded kronecker basis matrix
+    """
+    basis = basis_matrix.shape[0]
+    # argument checking
+    if var is None and not target_mat is None:
+        var = get_req_vars(target_mat, basis)[0]
+    elif not var is None and target_mat is None:
+        pass
+    else:
+        raise ValueError('Either specify target_mat OR var, not both!')
+
+    # computing the product
+    kron_basis = basis_matrix
+    for _ in range(var-1):
+        kron_basis = np.remainder(np.kron(basis_matrix, kron_basis), basis)
+
+    return kron_basis
+
+
+def field_multiplication(a, b, basis):
+    """
+    multiplies two integers by rules of field theory, where the field has a size of basis
+    :param a: the first argument
+    :param b: the second argument
+    :param basis: the type of basis
+    :return: the multiplied value
+    """
+    if basis == 'gf4':
+        return mults['gf4'][1][a, b]
+    else:
+        return np.remainder(a*b, mults['gf4'][0])
+
+
+mults = {
+    'gf4': [4, np.array([[0, 0, 0, 0], [0, 1, 2, 3], [0, 2, 3, 1], [0, 3, 1, 2]])]
+}
+
+adds = {
+    'gf4': [4, np.array([[0, 1, 2, 3], [1, 0, 3, 2], [2, 3, 0, 1], [3, 2, 1, 0]])]
+}
