@@ -298,18 +298,18 @@ class MEVxDD(Diagram):
         This function creates the leaves from the values given, and the node one step up
         """
         from node import Leaf
-        parent_node.child_nodes[0] = Leaf(1, 1, diagram_type=AEVxDD)
-        parent_node.offsets[0] = 1
+        parent_node.child_nodes[0] = Leaf(1, 1, diagram_type=MEVxDD)
+        parent_node.offsets[0] = leaf_values[0]
         for i in range(1, self.base, 1):
             parent_node.child_nodes[i] = parent_node.child_nodes[0]
             parent_node.offsets[i] = leaf_values[i] / leaf_values[0]
-        return parent_node, leaf_values[0]
+        return parent_node, leaf_values[0] if leaf_values[0] != 0 else 1
 
     def create_tuple(self, node, offset):
         """
         Computes the offset for a node, given the offset of its children
         """
-        node.offsets[0] = 1
+        node.offsets[0] = offset[0]
         for i in range(1, self.base, 1):
             node.offsets[i] = offset[i] / offset[0]
         return node, offset[0]
@@ -337,9 +337,15 @@ class MEVxDD(Diagram):
         """
         The diagram-type specific function to convert nodes to matrices
         """
+        print goffset
+        print loffset
         import numpy as np
         from node import Node, Leaf
         if isinstance(node, Leaf):
+            print 'the leafs value:'
+            print node.value
+            print 'the global offset'
+            print goffset
             return np.array((node.value * goffset))[None]
         elif isinstance(node, Node):
             return loffset * goffset
