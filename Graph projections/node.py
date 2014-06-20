@@ -410,7 +410,7 @@ class Node(object):
 
                 return base_mat, mat_shape
 
-        result, shape = to_mat_rec(self, 0, self.null_value)
+        result, shape = to_mat_rec(self, None, self.null_value)
         rows = self.dtype.base**np.ceil(np.log(rows)/np.log(self.dtype.base))
         result = np.reshape(result, (rows, shape/rows))
         # if desired, crop the result of all zero columns/rows in the lower right

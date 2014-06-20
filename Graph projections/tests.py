@@ -520,26 +520,27 @@ def test_mevdds():
     mtdd = MT3DD()
     aevdd = AEV3DD()
     mevdd = MEV3DD()
-    mat1 = np.array([[1, 7, 1], [3, -1, 2], [2, 8, 1], [1, 5, 1], [1, 5, 1], [1, 5, 1], [3, 15, 3], [3, 15, 3], [4, 20, 4]], dtype=float)
+    mat1 = np.array([[4, 20, 4], [3, -1, 0], [2, 0, 1], [0, 5, 1], [1, 5, 1], [2, 10, 2], [3, 15, 3]], dtype=float)
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
     print 'Reference:'
     print 'Complexity: ' + str(np.prod(mat1.shape))
     print mat1
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
     print 'normal multi-terminal DD'
-    diagram1 = mtdd.create(mat1, 0, False)
+    diagram1 = mtdd.create(mat1, 0, True)
     print 'Complexity: ' + str(diagram1.complexity())
     print diagram1.to_matrix(7, False)
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
     print 'additive edge-value DD'
-    diagram2 = aevdd.create(mat1, 0, False)
+    diagram2 = aevdd.create(mat1, 0, True)
     print 'Complexity: ' + str(diagram2.complexity())
     print diagram2.to_matrix(7, False)
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
     print 'multiplicative edge-value DD'
-    diagram3 = mevdd.create(mat1, 0, False)
+    diagram3 = mevdd.create(mat1, 0, True)
     print 'Complexity: ' + str(diagram3.complexity())
     print diagram3.to_matrix(7, False)
+    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
 
 
 if __name__ == "__main__":

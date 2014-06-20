@@ -274,6 +274,7 @@ class AEVxDD(Diagram):
         """
         The diagram-type specific function to convert nodes to matrices
         """
+        loffset = 0 if loffset is None else loffset
         import numpy as np
         from node import Node, Leaf
         if isinstance(node, Leaf):
@@ -298,26 +299,30 @@ class MEVxDD(Diagram):
         This function creates the leaves from the values given, and the node one step up
         """
         from node import Leaf
+        import numpy
         parent_node.child_nodes[0] = Leaf(1, 1, diagram_type=MEVxDD)
-        parent_node.offsets[0] = leaf_values[0]
-        for i in range(1, self.base, 1):
+        try:
+            base_factor = leaf_values[numpy.nonzero(leaf_values)[0][0]]
+        except IndexError:
+            base_factor = 1
+        for i in range(self.base):
             parent_node.child_nodes[i] = parent_node.child_nodes[0]
-            parent_node.offsets[i] = leaf_values[i] / leaf_values[0]
-        return parent_node, leaf_values[0] if leaf_values[0] != 0 else 1
+            parent_node.offsets[i] = leaf_values[i] / base_factor
+        return parent_node, base_factor
 
     def create_tuple(self, node, offset):
         """
         Computes the offset for a node, given the offset of its children
         """
-        node.offsets[0] = offset[0]
-        for i in range(1, self.base, 1):
-            node.offsets[i] = offset[i] / offset[0]
+        base_factor = offset[0] if offset[0] != 0 else 1
+        for i in range(self.base):
+            node.offsets[i] = offset[i] / base_factor
         return node, offset[0]
 
     def transform_basis(self, values):
         """
-        The transform function to change the basis. For the MTxDDs, this is the identity projection.
-        :param blocks: the different sections of data to be transformed
+        The transform function to change the basis. For all non-spectral DDs, this is the identity projection.
+        :param values: the data to be transformed
         :return: An unchanged array
         """
         block_len = len(values)/self.base
@@ -337,15 +342,10 @@ class MEVxDD(Diagram):
         """
         The diagram-type specific function to convert nodes to matrices
         """
-        print goffset
-        print loffset
+        loffset = 1 if loffset is None else loffset
         import numpy as np
         from node import Node, Leaf
         if isinstance(node, Leaf):
-            print 'the leafs value:'
-            print node.value
-            print 'the global offset'
-            print goffset
             return np.array((node.value * goffset))[None]
         elif isinstance(node, Node):
             return loffset * goffset
