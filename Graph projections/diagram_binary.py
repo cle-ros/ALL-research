@@ -69,18 +69,27 @@ class AABDD(BinaryDiagram):
         """
         import numpy as np
         # creating the multiplicative coefficient
-        mult_coeff = 1 if (offset[1][0]-offset[0][0]) == 0 else 1/(offset[1][0]-offset[0][0])
-        # for edge in offset:
-        #     try:
-        #         mult_coeff = 1/offset[edge][np.nonzero(offset[edge])[0][0]]
-        #         break
-        #     except IndexError:
-        #         mult_coeff = 1
-
-        # creating the new offsets
-        node.offsets[0] = np.array([0, mult_coeff*offset[0][1]])
-        node.offsets[1] = np.array([(offset[1][0]-offset[0][0])*mult_coeff, mult_coeff*offset[1][1]])
-        return node, [offset[0][0], (1/mult_coeff)]
+        # mult_coeff = 1 if (offset[1][0]-offset[0][0]) == 0 else 1/(offset[1][0]-offset[0][0])
+        # # for edge in offset:
+        # #     try:
+        # #         mult_coeff = 1/offset[edge][np.nonzero(offset[edge])[0][0]]
+        # #         break
+        # #     except IndexError:
+        # #         mult_coeff = 1
+        #
+        # # creating the new offsets
+        # node.offsets[0] = np.array([0, mult_coeff*offset[0][1]])
+        # node.offsets[1] = np.array([(offset[1][0]-offset[0][0])*mult_coeff, mult_coeff*offset[1][1]])
+        # return node, [offset[0][0], (1/mult_coeff)]
+        if offset[0][0] == 0:
+            # # creating the new offsets
+            node.offsets[0] = np.array([0, offset[0][1]])
+            node.offsets[1] = np.array([(offset[1][0]-offset[0][0]), offset[1][1]])
+            return node, [offset[0][0], 1]
+        else:
+            node.offsets[0] = np.array([0, offset[0][1]])
+            node.offsets[1] = np.array([0, (offset[1][0]/offset[0][0])*offset[1][1]])
+            return node, [0, offset[0][0]]
 
     @staticmethod
     def to_mat(node, loffset, goffset=default_offset):

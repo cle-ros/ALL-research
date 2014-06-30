@@ -577,7 +577,7 @@ def test_mevdds():
     mtdd = MT2DD()
     aevdd = AEV2DD()
     mevdd = MEV2DD()
-    mat1 = np.array([[4, 20, 4], [3, -1, 0], [2, 0, 1], [0, 5, 1], [1, 5, 1], [2, 10, 2], [3, 15, 3]], dtype=float)
+    mat1 = np.array([[8, 20, 8], [3, -1, 0], [2, 0, 1], [0, 5, 1], [1, 5, 1], [2, 10, 2], [11, 15, 11]], dtype=float)
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
     print 'Reference:'
     print 'Complexity: ' + str(np.prod(mat1.shape))
