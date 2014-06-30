@@ -88,8 +88,8 @@ class AABDD(BinaryDiagram):
             return node, [offset[0][0], 1]
         else:
             node.offsets[0] = np.array([0, offset[0][1]])
-            node.offsets[1] = np.array([0, (offset[1][0]/offset[0][0])*offset[1][1]])
-            return node, [0, offset[0][0]]
+            node.offsets[1] = np.array([offset[1][0]/offset[0][1], (offset[1][1]/offset[0][1])])
+            return node, [0, offset[0][1]]
 
     @staticmethod
     def to_mat(node, loffset, goffset=default_offset):
