@@ -1,191 +1,144 @@
 __author__ = 'clemens'
 
-from diagram import Diagram
+from diagram import Diagram, MTxDD, AEVxDD, MEVxDD
 
 
 class BinaryDiagram(Diagram):
     base = 2
 
 
-class MTBDD(BinaryDiagram):
+class MT2DD(MTxDD, BinaryDiagram):
     def __init__(self):
+        from node import Node, Leaf
+        Diagram.__init__(self, Node, Leaf)
+
+
+class AEV2DD(AEVxDD, BinaryDiagram):
+    def __init__(self):
+        from node import Node, Leaf
+        Diagram.__init__(self, Node, Leaf)
+
+
+class MEV2DD(MEVxDD, BinaryDiagram):
+    def __init__(self):
+        from node import Node, Leaf
+        Diagram.__init__(self, Node, Leaf)
+
+
+class AABDD(BinaryDiagram):
+    """
+    This is an implementation of Scott Sanner's affine algebraic DDs
+    """
+    default_offset = [0, 1]
+
+    def __init__(self):
+        """
+        The init method
+        :rtype : a copy of itself
+        """
         from node import BNode, BLeaf
-        BinaryDiagram.__init__(self, BNode, BLeaf)
+        Diagram.__init__(self, BNode, BLeaf)
 
     def create_leaves(self, parent_node, leaf_values):
         """
-        This function creates the leaves from the values given, and the node one step up
+        This function creates terminal nodes given the parent node and the leaf values
         """
-        parent_node.n = self.leaf_type(leaf_values[0], leaf_values[0], diagram_type=MTBDD)
-        parent_node.p = self.leaf_type(leaf_values[1], leaf_values[1], diagram_type=MTBDD)
-        return parent_node, 0
+        """
+        How to decide on the offsets:
+        1. the leaf-value @ branch 0 pushes the according add. offset to 0
+        2. the multiplicative offset
+        2. for max-branch: add. offset + mult. offset = max(leaves)
+        3. @ leaf-level: mult. offset = 0
+        """
+        # TODO: find generalization!!
+        import numpy as np
+        # creating the leaf object
+        parent_node.child_nodes[0] = parent_node.child_nodes[1] = self.leaf_type(0, 0, diagram_type=self.__class__)
+
+        # creating the multiplicative coefficient
+        mult_coeff = 1 if (leaf_values[1]-leaf_values[0]) == 0 else 1/(leaf_values[1]-leaf_values[0])
+
+        # creating the offsets
+        parent_node.offsets[0] = np.array([0, mult_coeff])
+        parent_node.offsets[1] = np.array([(leaf_values[1]-leaf_values[0])*mult_coeff, mult_coeff])
+        return parent_node, [leaf_values[0], (1/mult_coeff)]
 
     def create_tuple(self, node, offset):
-        return node, 0
-
-    @staticmethod
-    def to_mat(leaf, loffset=None, goffset=None):
         """
-        The diagram-type specific function to convert nodes to matrices
+        This method defines how AABDDs branch.
         """
         import numpy as np
-        if leaf.is_leaf():
-            return np.array(leaf.value)[None]
-        else:
-            return None
+        # creating the multiplicative coefficient
+        mult_coeff = 1 if (offset[1][0]-offset[0][0]) == 0 else 1/(offset[1][0]-offset[0][0])
+        # for edge in offset:
+        #     try:
+        #         mult_coeff = 1/offset[edge][np.nonzero(offset[edge])[0][0]]
+        #         break
+        #     except IndexError:
+        #         mult_coeff = 1
+
+        # creating the new offsets
+        node.offsets[0] = np.array([0, mult_coeff*offset[0][1]])
+        node.offsets[1] = np.array([(offset[1][0]-offset[0][0])*mult_coeff, mult_coeff*offset[1][1]])
+        return node, [offset[0][0], (1/mult_coeff)]
 
     @staticmethod
-    def include_final_offset(node, offset):
-        """
-        This function includes an offset remaining after creating the diagram into the diagram.
-        """
-        for leaf in node.leaves:
-            leaf.value = leaf.value + offset
-
-    @staticmethod
-    def add(node1, node2, offset=[0, 0]):
-        """
-        This function adds two nodes
-        """
-        from node import Leaf
-        if isinstance(node1, Leaf):
-            return node1.value + node2.value
-        else:
-            return 0, 0
-
-    @staticmethod
-    def sum(node, offset):
-        """
-        This function takes a node and an offset to compute the new offset for the children nodes.
-        """
-        from node import Leaf
-        if isinstance(node, Leaf):
-            return node.value
-        else:
-            return 0, 0
-
-    @staticmethod
-    def scalar_mult(node, scalar):
-        """
-        The helper function for scalar multiplication.
-        """
-        from node import Leaf
-        if isinstance(node, Leaf):
-            node.value = node.value * scalar
-            return node
-        else:
-            return node
-
-    @staticmethod
-    def collapse_node(edge_offset, offset):
-        return None
-
-    @staticmethod
-    def mult(self, node):
-        """
-        The helper method for scalar multiplication
-        """
-        raise NotImplementedError
-
-
-class EVBDD(BinaryDiagram):
-    def __init__(self):
-        from node import BNode, BLeaf
-        BinaryDiagram.__init__(self, BNode, BLeaf)
-
-    @staticmethod
-    def create_leaves(parent_node, leaf_values):
-        """
-        This function creates the leaves from the values given, and the node one step up
-        """
-        from node import BLeaf
-        parent_node.n = parent_node.p = BLeaf(0, 0, diagram_type=EVBDD)
-        parent_node.no = 0
-        parent_node.po = leaf_values[1] - leaf_values[0]
-        return parent_node, leaf_values[0]
-
-    @staticmethod
-    def create_tuple(node, offset):
-        """
-        Computes the offset for a node, given the offset of its children
-        """
-        node.no = 0
-        node.po = offset[1] - offset[0]
-        return node, offset[0]
-
-    @staticmethod
-    def collapse_node(edge_offset, offset):
-        return edge_offset + offset
-
-    @staticmethod
-    def to_mat(node, goffset=0, loffset=0):
+    def to_mat(node, loffset, goffset=default_offset):
         """
         The diagram-type specific function to convert nodes to matrices
         """
+        goffset = AABDD.default_offset if goffset is None else goffset
+        loffset = AABDD.default_offset if loffset is None else loffset
         import numpy as np
         from node import Node, Leaf
         if isinstance(node, Leaf):
-            return np.array((node.value + goffset))[None]
+            return np.array((goffset[0] + goffset[1]*(loffset[0] + loffset[1]*node.value)))[None]
         elif isinstance(node, Node):
-            return loffset + goffset
+            return goffset[0] + goffset[1]*loffset[0], goffset[1]*loffset[1]
         else:
             raise TypeError
 
     @staticmethod
     def include_final_offset(node, offset):
-        """
-        This function includes an offset remaining after creating the diagram into the diagram.
-        """
-        for leaf in node.leaves:
-            leaf.value = leaf.value + offset
+        for oindex in node.offsets:
+            node.offsets[oindex][0] = offset[0] + offset[1]*node.offsets[oindex][0]
+            node.offsets[oindex][1] *= offset[1]
 
-    @staticmethod
-    def add(node1, node2, offset=[0, 0]):
+    def add(self, node1, offset):
         """
-        This function adds two nodes, returning the respective offset for n and p
+        This function adds two nodes
+        :rtype : array of offsets (e.g. n-offset, p-offset)
+        :param node1: the first node
+        :param offset: the parent offset
         """
-        from node import Leaf
-        if isinstance(node1, Leaf):
-            return node1.value + node2.value + offset[0] + offset[1]
-        else:
-            return node1.no + node2.no + offset[0], node1.po + node2.po + offset[1]
+        raise NotImplementedError
 
-    @staticmethod
-    def sum(node, offset):
+    def sum(self, offset):
         """
-        This function takes an offset and a node to create the two new offsets for the different children
+        the helper function for summing a diagram
         """
-        from node import Leaf
-        if isinstance(node, Leaf):
-            return node.value + offset
-        else:
-            return node.no + offset, node.po + offset
+        raise NotImplementedError
 
-    @staticmethod
-    def scalar_mult(node, scalar):
+    def scalar_mult(self, scalar):
         """
-        The helper function for scalar multiplication.
+        The helper function for scalar multiplication
         """
-        from node import Leaf
-        if isinstance(node, Leaf):
-            node.value = node.value * scalar
-            return node
-        else:
-            node.no = node.no * scalar
-            node.po = node.po * scalar
-            return node
+        raise NotImplementedError
 
-    @staticmethod
-    def mult(node1, node2, offset=None, n_offset=None, p_offset=None, mtype=None):
+    def mult(self, node):
         """
-        The helper method for scalar multiplication
+        The helper method for elementwise multiplication
         """
-        if offset is None:
-            offset = 0
-        if mtype == 'Node':
-            return node2.value * offset, offset, True
-        elif mtype == 'First':
-            return node1.no + offset, node1.po + offset, True
-        elif mtype == 'Second':
-            return node2.no*offset, node2.po*offset, offset
-        raise TypeError
+        raise NotImplementedError
+
+    def collaple_node(self, offset):
+        """
+        This function "opposes" the create-functions, i.e. it does the reverse, collapsing operation
+        """
+        raise NotImplementedError
+
+    def get_path(self):
+        raise NotImplementedError
+
+    def flatten(self):
+        raise NotImplementedError

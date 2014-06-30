@@ -108,8 +108,15 @@ class Diagram:
         node_o.reinitialize_nodes()
         return node_o
 
-    def transform_basis(self, blocks):
-        raise NotImplementedError
+    def transform_basis(self, values):
+        """
+        The transform function to change the basis. For the MTxDDs, this is the identity projection.
+        :param blocks: the different sections of data to be transformed
+        :return: An unchanged array
+        """
+        block_len = len(values)/self.base
+        blocks = [values[i*block_len:(i+1)*block_len] for i in range(self.base)]
+        return blocks
 
     def create(self, matrix, null_value, to_reduce=True, dec_digits=-1):
         """
@@ -161,8 +168,7 @@ class Diagram:
         diagram, f_offset, _ = create_diagram_rec(leaves)
 
         # making sure that the entire diagram is not "off" by the final offset
-        if f_offset != 0:
-            self.include_final_offset(diagram, f_offset)
+        self.include_final_offset(diagram, f_offset)
         if to_reduce:
             self.reduce(diagram)
 
@@ -177,16 +183,6 @@ class MTxDD(Diagram):
         from node import Node, Leaf
         self.base = basis
         Diagram.__init__(self, Node, Leaf)
-
-    def transform_basis(self, values):
-        """
-        The transform function to change the basis. For the MTxDDs, this is the identity projection.
-        :param blocks: the different sections of data to be transformed
-        :return: An unchanged array
-        """
-        block_len = len(values)/self.base
-        blocks = [values[i*block_len:(i+1)*block_len] for i in range(self.base)]
-        return blocks
 
     def create_leaves(self, parent_node, leaf_values):
         """
@@ -250,16 +246,6 @@ class AEVxDD(Diagram):
         for i in range(1, self.base, 1):
             node.offsets[i] = offset[i] - offset[0]
         return node, offset[0]
-
-    def transform_basis(self, values):
-        """
-        The transform function to change the basis. For the MTxDDs, this is the identity projection.
-        :param blocks: the different sections of data to be transformed
-        :return: An unchanged array
-        """
-        block_len = len(values)/self.base
-        blocks = [values[i*block_len:(i+1)*block_len] for i in range(self.base)]
-        return blocks
 
     @staticmethod
     def include_final_offset(node, offset):

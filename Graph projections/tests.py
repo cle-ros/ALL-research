@@ -515,11 +515,68 @@ def pseudo_reduction():
             print '    Lossy Complexity: ' + str(dd2.complexity())
 
 
+def test_mevdds2():
+    from diagram_binary import AABDD
+    aadd = AABDD()
+    mat1 = np.array([[4, 20, 4], [3, -1, 0], [2, 0, 1], [0, 5, 1], [1, 5, 1], [2, 10, 2], [3, 15, 3]], dtype=float)
+    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    print 'Reference:'
+    print 'Complexity: ' + str(np.prod(mat1.shape))
+    print mat1
+    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    print 'AADD'
+    diagram1 = aadd.create(mat1, 0, True)
+    print 'Complexity: ' + str(diagram1.complexity())
+    print diagram1.to_matrix(7, True)
+    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+
+
+basis_function = {
+    'id3'       : np.identity(3),
+    'gf3'       : np.array([[1, 0, 0], [0, 2, 1], [2, 2, 2]]),
+    'rmf3'      : np.array([[1, 0, 0], [1, 2, 0], [1, 1, 1]]),
+    # 'id4'       : np.identity(4),
+    # 'rmf4'      : np.array([[1, 0, 0, 0], [1, 3, 0, 0], [1, 2, 1, 0], [1, 1, 3, 3]])
+}
+
+
+def test_kronecker():
+    print np.array([j for j in range(3**3)])[None]
+    from matrix_and_variable_operations import kronecker_expansion
+    for i in range(4):
+        print kronecker_expansion(basis_function['rmf3'], var=i)
+
+
+def divide_conquer_kron():
+    from matrix_and_variable_operations import kronecker_expansion
+    a = np.ones(243*243)
+    rand = np.random.random((243*243))
+    # kron = kronecker_expansion(basis_function['rmf3'], var=10)
+    for i1 in range(3):
+        bf = basis_function['rmf3'][i1]
+        b = np.kron(a[i1*81:(i1+1)*81], bf)
+        print b.shape
+        for i2 in range(3):
+            cf = basis_function['rmf3'][i2]
+            c = np.kron(b[i2*81:(i2+1)*81], cf)
+            for i3 in range(3):
+                df = basis_function['rmf3'][i3]
+                d = np.kron(b[i3*81:(i3+1)*81], df)
+                for i4 in range(3):
+                    ef = basis_function['rmf3'][i4]
+                    e = np.kron(b[i4*81:(i4+1)*81], ef)
+                    f = np.remainder(e, 3)
+                    # print kron[i1*81+i2*27+i3*9+i4*3]
+                    # print f
+                    # res = np.dot(f, rand.T)
+
+
 def test_mevdds():
     from diagram_ternary import MT3DD, AEV3DD, MEV3DD
-    mtdd = MT3DD()
-    aevdd = AEV3DD()
-    mevdd = MEV3DD()
+    from diagram_binary import MT2DD, AEV2DD, MEV2DD, AABDD
+    mtdd = MT2DD()
+    aevdd = AEV2DD()
+    mevdd = MEV2DD()
     mat1 = np.array([[4, 20, 4], [3, -1, 0], [2, 0, 1], [0, 5, 1], [1, 5, 1], [2, 10, 2], [3, 15, 3]], dtype=float)
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
     print 'Reference:'
@@ -529,22 +586,37 @@ def test_mevdds():
     print 'normal multi-terminal DD'
     diagram1 = mtdd.create(mat1, 0, True)
     print 'Complexity: ' + str(diagram1.complexity())
-    print diagram1.to_matrix(7, False)
+    print diagram1.to_matrix(7, True)
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
     print 'additive edge-value DD'
     diagram2 = aevdd.create(mat1, 0, True)
     print 'Complexity: ' + str(diagram2.complexity())
-    print diagram2.to_matrix(7, False)
+    print diagram2.to_matrix(7, True)
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
     print 'multiplicative edge-value DD'
     diagram3 = mevdd.create(mat1, 0, True)
     print 'Complexity: ' + str(diagram3.complexity())
-    print diagram3.to_matrix(7, False)
+    print diagram3.to_matrix(7, True)
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    print 'AADD'
+    aadd = AABDD()
+    diagram4 = aadd.create(mat1, 0, True)
+    print 'Complexity: ' + str(diagram4.complexity())
+    print diagram4.to_matrix(7, True)
+    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    for node in diagram4.nodes:
+        try:
+            if node.child_nodes[0].is_leaf():
+                print node.offsets
+        except TypeError:
+            pass
 
 
 if __name__ == "__main__":
     test_mevdds()
+    # divide_conquer_kron()
+    # divide_conquer_kron()
+    # test_mevdds()
     # pseudo_reduction()
     # test_hash()
     # test_mddd()

@@ -13,9 +13,9 @@ class Node(object):
     for the specific case, i.e. binary nodes (see class BNode))
     """
     properties = {}
-    from diagram_binary import MTBDD
+    from diagram import MTxDD
 
-    def __init__(self, denominator='', diagram_type=MTBDD, depth=None, nv=0, mat=None, var='x'):
+    def __init__(self, denominator='', diagram_type=MTxDD, depth=None, nv=0, mat=None, var='x'):
         """        
         all required information are the name of the node
         :param mat:
@@ -394,12 +394,14 @@ class Node(object):
                 # the recursive call
                 mat_shape = node.dtype.base**node.d
                 base_mat = np.ones(mat_shape)*nv
+                # checking for the kind of diagram. MTxxx?
                 if self.offsets == {}:
                     pos_counter = 0
                     for edge_name in node.child_nodes:
                         base_mat[pos_counter*mat_shape/node.dtype.base:(pos_counter+1)*mat_shape/node.dtype.base], _ = \
                             to_mat_rec(node.child_nodes[edge_name], node.dtype.to_mat(node, 0, 0), nv)
                         pos_counter += 1
+                # or edge-value dd?
                 else:
                     pos_counter = 0
                     for edge_name in node.child_nodes:
@@ -460,9 +462,9 @@ class BNode(Node):
     """
     This class extends Node for binary graphs
     """
-    from diagram_binary import MTBDD
+    from diagram import MTxDD
 
-    def __init__(self, denominator='', diagram_type=MTBDD, depth=None, nv=0, mat=None, var=None):
+    def __init__(self, denominator='', diagram_type=MTxDD, depth=None, nv=0, mat=None, var=None):
         """
 
         :param mat:
@@ -624,9 +626,9 @@ class BLeaf(Leaf):
     """
     A special class for leaves_array in binary diagrams
     """
-    from diagram_binary import MTBDD
+    from diagram import MTxDD
 
-    def __init__(self, denominator, val, diagram_type=MTBDD):
+    def __init__(self, denominator, val, diagram_type=MTxDD):
         Leaf.__init__(self, denominator, val, diagram_type=diagram_type)
 
 

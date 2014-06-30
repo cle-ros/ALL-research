@@ -85,6 +85,7 @@ def kronecker_expansion(basis_matrix, target_mat=None, var=None):
     kron_basis = basis_matrix
     for _ in range(var-1):
         kron_basis = np.remainder(np.kron(basis_matrix, kron_basis), basis)
+        # kron_basis = np.kron(basis_matrix, kron_basis)
 
     return kron_basis
 
