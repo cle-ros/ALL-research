@@ -1,7 +1,7 @@
 __author__ = 'clemens'
 
 
-from diagram import Diagram, MTxDD, AEVxDD, MEVxDD
+from diagram import Diagram, MTxDD, AEVxDD, MEVxDD, AAxEVDD
 
 
 class TernaryDiagram(Diagram):
@@ -35,6 +35,12 @@ class AEV3DD(AEVxDD, TernaryDiagram):
 
 
 class MEV3DD(MEVxDD, TernaryDiagram):
+    def __init__(self):
+        from node import Node, Leaf
+        Diagram.__init__(self, Node, Leaf)
+
+
+class AAEV3DD(AAxEVDD, TernaryDiagram):
     def __init__(self):
         from node import Node, Leaf
         Diagram.__init__(self, Node, Leaf)

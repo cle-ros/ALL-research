@@ -5,6 +5,8 @@ Created on Thu Feb 13 14:23:43 2014
 @author: clemens
 """
 
+from diagram_exceptions import NoSuchNode, TerminalNode
+
 
 class Node(object):
     """
@@ -37,6 +39,33 @@ class Node(object):
         if not mat is None:
             from diagram_initialization import initialize_diagram
             self.shape = initialize_diagram(self, mat, nv, var)
+
+    def get_offset(self, index):
+        """
+        This function handles possible index exceptions when accessing the offsets
+        :param index: the index of the offset to be accessed
+        :return: the value, if it exists. None, otherwise.
+        """
+        if self.is_leaf():
+            raise TerminalNode
+        try:
+            return self.offsets[index]
+        except KeyError:
+            return None
+
+    def set_offset(self, index, value):
+        """
+        This function handles possibility of there not being any offset to be set
+        :param index: the index of the offset to be accessed
+        :param value: the value to be set. Nothing will be set if None
+        :return:
+        """
+        if self.is_leaf():
+            raise TerminalNode
+        if value is None:
+            return
+        else:
+            self.offsets[index] = value
 
     def add_child(self, child, number, offset=None):
         """        
@@ -100,49 +129,13 @@ class Node(object):
         #raise NoSuchNode('The leaf '+str(leaf)+' is not a leaf of node ' + self.name)
         raise NoSuchNode('The object '+str(leaf)+' is not a leaf of node ' + self.name)
 
-    def reinitialize_leaves(self):
-        """
-        This method reinitializes the leaf-array in case some operation on the diagram changed it
-        :return: set of all leave nodes
-        """
-        # TODO: merge reinit and creation of leaves and nodes, for one includes the other
-        # is the current node a leaf?
-        if self.is_leaf():
-            return {self}
-        # if not, recursively return all children
-        else:
-            childrens_leaves = set()
-            for child in self.child_nodes:
-                childrens_leaves = childrens_leaves.union(self.child_nodes[child].reinitialize_leaves())
-            # storing it for later use
-            self.leaves_set = childrens_leaves
-            return childrens_leaves
-
-    def reinitialize_nodes(self):
-        """
-        This method returns the nodes_set, but reinitializes it first (if it has changed, e.g. via reduction)
-        :rtype : array of leaf-nodes
-        :return: set of all nodes in the diagram
-        """
-        # TODO: merge reinit and creation of leaves and nodes, for one includes the other
-        # is the current node a leaf?
-        if self.is_leaf():
-            return {self}
-        # if not, recursively return all children
-        else:
-            children_nodes = {self}
-            for child in self.child_nodes:
-                children_nodes = children_nodes.union(self.child_nodes[child].reinitialize_nodes())
-            # storing it for later use
-            self.nodes_set = children_nodes
-            return children_nodes
-
     def reinitialize(self):
         """
-        A method combining the functionality of both reinitialize_nodes and reinitialize_leaves
+        A method combining the functionality of reinitialize_nodes, reinitialize_leaves and __hash__(reinit)
         :return:
         """
         if self.is_leaf():
+            self.__hash__(reinit=True)
             return {self}, {self}
         else:
             children_leaves = set()
@@ -153,6 +146,7 @@ class Node(object):
                 children_leaves = children_leaves.union(cur_child_leaves)
                 children_nodes = children_nodes.union(cur_child_nodes)
             # storing the sets for later use
+            self.__hash__(reinit=True)
             self.leaves = children_leaves
             self.nodes = children_nodes
             return children_leaves, children_nodes
@@ -233,20 +227,18 @@ class Node(object):
         :param depth:
         :return:
         """
-        subdiagrams = []
+        subdiagrams = set()
 
         def get_sds_rec(node, sds, level, cur_level):
             if level == cur_level:
-                sds.append(node)
+                return sds.union({node})
             else:
                 # the children have to be sorted for some usages
-                children = []
-                for child in node.child_nodes.keys():
-                    children.append(child)
-                children.sort()
-                for child in children:
-                    get_sds_rec(node.child_nodes[child], sds, level, cur_level+1)
-        get_sds_rec(self, subdiagrams, depth, 0)
+                children = set()
+                for child in node.child_nodes:
+                    children = children.union(get_sds_rec(node.child_nodes[child], sds, level, cur_level+1))
+                return children
+        subdiagrams = get_sds_rec(self, subdiagrams, depth, 0)
         return subdiagrams
 
     def get_subdiagrams_grouped_by_level(self):
@@ -311,11 +303,40 @@ class Node(object):
         """
         return self.dtype.add(self, node, **offset)
 
-    def sum(self, **offset):
+    def sum(self):
         """
-        This method sums the current node
+        This method returns the matrix represented by the diagram
+        :param rows:
+        :param cropping:
         """
-        return self.dtype.sum(self, **offset)
+        import numpy as np
+
+        # covering zero-matrices
+        if self.child_nodes == {}:
+            return self.null_value
+
+        def sum_rec(node, offset):
+            # making sure the node exists
+            if not node:
+                return 0
+            # checking whether the node is a leaf
+            elif node.is_leaf():
+                return np.sum(node.dtype.to_mat(node, offset))
+            else:
+                tmp_result = 0
+                # the recursive call
+                # checking for the kind of diagram. MTxxx?
+                if self.offsets == {}:
+                    for edge_name in node.child_nodes:
+                        tmp_result += sum_rec(node.child_nodes[edge_name], node.dtype.to_mat(node, 0, 0))
+                # or edge-value dd?
+                else:
+                    for edge_name in node.child_nodes:
+                        tmp_result += sum_rec(node.child_nodes[edge_name], node.dtype.to_mat(node, node.offsets[edge_name], offset))
+
+                return tmp_result
+
+        return sum_rec(self, None)
 
     def create_leaf(self, value):
         """
@@ -371,7 +392,7 @@ class Node(object):
         decomposition = decompose_paths_rec(self, np.array([]))
         return decomposition.reshape((decomposition.shape[0]/(self.d+1), self.d+1))
 
-    def to_matrix(self, rows=1, cropping=False):
+    def to_matrix(self, rows=1, cropping=False, outer_offset=None):
         """
         This method returns the matrix represented by the diagram
         :param rows:
@@ -412,7 +433,7 @@ class Node(object):
 
                 return base_mat, mat_shape
 
-        result, shape = to_mat_rec(self, None, self.null_value)
+        result, shape = to_mat_rec(self, outer_offset, self.null_value)
         rows = self.dtype.base**np.ceil(np.log(rows)/np.log(self.dtype.base))
         result = np.reshape(result, (rows, shape/rows))
         # if desired, crop the result of all zero columns/rows in the lower right
@@ -432,11 +453,11 @@ class Node(object):
     def m(self):
         return self.to_matrix()
 
-    def __hash__(self):
+    def __hash__(self, reinit=False):
         """
         A test function to make nodes hashable. The hash is the address of the python object.
         """
-        if not self.hash_value is None:
+        if not self.hash_value is None and not reinit:
             return self.hash_value
         elif isinstance(self, Leaf):
             self.hash_value = Hash.leaf_hash(self)
@@ -444,6 +465,37 @@ class Node(object):
         else:
             self.hash_value = Hash.node_hash(self)
             return self.hash_value
+
+    def reduce(self):
+        """
+        This function reduces a tree, given in node, to the fitting diagram
+        :rtype : None - the change will be applied to the argument
+        :param self : the tree (or diagram) to be reduced
+        """
+        # initializing a hashtable for all the nodes in the tree
+        hashtable = {}
+        for node_it in self.nodes:
+            # storing each node only once in the table
+            if not node_it.__hash__() in hashtable:
+                hashtable[node_it.__hash__()] = node_it
+
+        def reduce_rec(node):
+            """
+            The recursive method for the reduction.
+            """
+            if node.is_leaf():
+                return
+            for edge in node.child_nodes:
+                # replacing the subdiagram with a singular isomorphic one
+                node.child_nodes[edge] = hashtable[node.child_nodes[edge].__hash__()]
+                # and going down recursively along that subdiagram
+                reduce_rec(node.child_nodes[edge])
+
+        # calling the reduction method
+        reduce_rec(self)
+        # reinitializing the diagram
+        self.reinitialize()
+        return self
 
 
 class Hash:
@@ -630,17 +682,3 @@ class BLeaf(Leaf):
 
     def __init__(self, denominator, val, diagram_type=MTxDD):
         Leaf.__init__(self, denominator, val, diagram_type=diagram_type)
-
-
-class NoSuchNode(Exception):
-    """
-    A slightly more fitting Exception for this usecase :-)
-    """
-    pass
-
-
-class TerminalNode(Exception):
-    """
-    A slightly more fitting Exception for this usecase :-)
-    """
-    pass

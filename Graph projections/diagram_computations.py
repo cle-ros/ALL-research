@@ -5,8 +5,8 @@ Created on Fri Feb 14 13:11:22 2014
 @author: clemens
 """
 import copy
-from node import Node, BNode
-from diagram_initialization import append_nodes_recursively, get_var_names
+from node import Node
+from diagram_exceptions import OutOfBounds
 import numpy as np
 
 
@@ -69,28 +69,9 @@ def scalar_multiply_diagram(diagram, scalar):
     diagram.reinitialize_nodes()
     result = copy.deepcopy(diagram)
 
-    for node in result.nodes:
-        node.dtype.scalar_mult(node, scalar)
+    diagram.dtype.scalar_mult(diagram, scalar)
 
     return result
-
-
-def get_subdiagrams(diagram, depth):
-    """
-    This function takes a diagram and returns a list of all the subdiagrams at the nth level
-    :param diagram:
-    :param depth:
-    """
-    subdiags = []
-
-    def get_subdiags_rec(node, level):
-        # a nested function for the recursive call
-        if level == depth:
-            subdiags.append(diagram)
-        else:
-            for child in node.child_nodes:
-                get_subdiags_rec(node.child_nodes[child][0], level-1)
-    return subdiags
 
 
 def add_diagrams(dia1, dia2, to_reduce=True, offset=[0, 0]):
@@ -145,7 +126,7 @@ def elementwise_multiply_diagrams_evbdd(dia1, dia2, loffset=0, roffset=0, to_red
     :param dia2:
     :return: a diagram representing the element-wise matrix product
     """
-    from diagram import EVBDD
+    from diagram import AEVxDD
 #    opt = convert_options(options)
 
     def elementwise_multiply_diagrams_evbdd_rec(node1, node2, offset1, offset2):
@@ -163,7 +144,7 @@ def elementwise_multiply_diagrams_evbdd(dia1, dia2, loffset=0, roffset=0, to_red
             p_value = (node1.p.value + node1.po + offset1) * (node2.p.value + node2.po + offset2)
             node = node1.create_node()
             node.d = 1
-            node, offset = EVBDD.create_leaves(node, [n_value, p_value])
+            node, offset = AEVxDD.create_leaves(node, [n_value, p_value])
             return node, offset, 1
         else:
             # computing the previous sum
@@ -173,7 +154,7 @@ def elementwise_multiply_diagrams_evbdd(dia1, dia2, loffset=0, roffset=0, to_red
             node.n, n_offset, depth = elementwise_multiply_diagrams_evbdd_rec(node1.n, node2.n, node1.no + offset1, node2.no + offset2)
             node.p, p_offset, depth = elementwise_multiply_diagrams_evbdd_rec(node1.p, node2.p, node1.po + offset1, node2.po + offset2)
             depth += 1
-            node, offset = EVBDD.create_tuple(node, n_offset, p_offset)
+            node, offset = AEVxDD.create_tuple(node, n_offset, p_offset)
             node.d = depth
             return node, offset, depth
 
@@ -326,45 +307,14 @@ def multiply_by_column_vector(mat_diagram, vec_diagram, ooffset=0):
     return multiply_bdiagram_by_vector_rec(mat_diagram, vec_diagram, ooffset)
 
 
-def transpose_diagram(diagram, rows=None):
-    """
-    This transposes the underlying matrix. The basic operation is to exchange the horizontal with the vertical variables,
-    or, in diagram-terms, to exchange the upper half of the diagram representing the vertical variables with the lower
-    half, representing the horizontal variables.
-    :param diagram:
-    """
-    # assert isinstance(diagram, BNode)
-    # if diagram.p is False and diagram.n is False:
-    #     return copy.copy(diagram)
-    # if rows is None:
-    #     rows1 = diagram.shape[0]
-    # else:
-    #     rows1 = np.ceil(np.log2(rows))
-    # paths = diagram.decompose_paths()
-    # new_paths = np.hstack((paths[:, rows1:-1], paths[:, :rows1], paths[:, -1][None].T))
-    # TODO: clean up the diagram creation code, and remove redundancies
-    # node = type(diagram)('x')
-    # node.null_value = diagram.null_value
-    # var_names = np.append(get_var_names(new_paths.shape[1]-1, 'x'), '-1')
-    # tmp_mat = np.vstack((var_names, new_paths))
-    # append_nodes_recursively(node, tmp_mat, {})
-    # if node.p:
-    #     node.d = node.p.d + 1
-    # else:
-    #     node.d = node.n.d + 1
-    # return node
-    d_instance = diagram.dtype()
-    return d_instance.create(diagram.to_matrix(rows).T, 0)
-
-
-def multiply_diagram(diag1, diag2, height, transpose=True):
+def multiply_diagram(diag1, diag2, height, to_transpose=True):
     """
     This function multiplies two diagrams by the logic of the matrix multiplication
     """
     assert isinstance(diag1, Node)
     assert isinstance(diag2, Node)
-    if transpose:
-        diag3 = transpose_diagram(diag2, height)
+    if to_transpose:
+        diag3 = transpose(diag2, height)
     else:
         diag3 = diag2
 
@@ -427,4 +377,233 @@ def multiply_diagram(diag1, diag2, height, transpose=True):
     return result
 
 
+def exchange_variable_order_with_children(node, depth):
+    """
+    This function exchanges the variable encoded by the subdiagrams at a specified level with the following variable,
+    i.e. the variable encoded by the child-subdiagrams
+    :param node: the main diagram
+    :param depth: the level of subdiagrams encoding the variable to be exchanged with its successor
+    :return: the same node, with a different variable ordering
+    """
+    # unfortunately, if the depth equals zero, this is a special case ...
+    if depth == 0:
+        exchange_matrix = []
+        for child_0 in node.child_nodes:
+            exchange_row = [None, child_0, node.get_offset(child_0), None, None, None]
+            children_1 = node.child_nodes[child_0].child_nodes
+            # exchanging the order
+            # looping over the different offsets:
+            for child_1 in children_1:
+                exchange_row[3] = child_1
+                exchange_row[4] = node.child_nodes[child_0].get_offset(child_1)
+                exchange_row[5] = children_1[child_1]
+                exchange_matrix.append(list(exchange_row))
+        # swapping the child-relations between the two levels
+        # clearing the previous data
+        node.child_nodes = {}
+        node.offsets = {}
+        # computing the combined offsets:
+        exchange_matrix = node.dtype.rearrange_offsets(exchange_matrix, node.dtype)
+        # iterating over the swaps
+        for ex_row in exchange_matrix:
+            # creating a new node at first level and setting the depth
+            if not ex_row[1] in node.child_nodes:
+                node.child_nodes[ex_row[1]] = node.create_node()
+                node.set_offset(ex_row[1], ex_row[2])
+                node.child_nodes[ex_row[1]].d = ex_row[5].d + 1
+            # swapping the children at second level and the depth
+            node.child_nodes[ex_row[1]].child_nodes[ex_row[3]] = ex_row[5]
+            node.child_nodes[ex_row[1]].set_offset(ex_row[3], ex_row[4])
+    # the case for non-zero root level
+    else:
+        subdiagrams_at_level = list(node.get_subdiagrams(depth-1))
+        # looping over the diagrams, to exchange the variable ordering
+        for sd in subdiagrams_at_level:
+            exchange_matrix = []
+            # storing the children, for the child_node relation will be dissolved
+            for child_lvl_0 in sd.child_nodes:
+                exchange_row = [child_lvl_0, None, None, None, None, None]
+                children_level_1 = sd.child_nodes[child_lvl_0].child_nodes
+                exchange_matrix_part = []
+                # iterating over the children, which will be exchanged with their children in turn
+                for child_lvl_1 in children_level_1:
+                    exchange_row[1] = child_lvl_1
+                    exchange_row[2] = sd.child_nodes[child_lvl_0].get_offset(child_lvl_1)
+                    children_level_2 = children_level_1[child_lvl_1].child_nodes
+                    # exchanging the order
+                    # 1. computing the combined offsets:
+                    # looping over the different offsets:
+                    for child_lvl_2 in children_level_2:
+                        exchange_row[3] = child_lvl_2
+                        exchange_row[4] = children_level_1[child_lvl_1].get_offset(child_lvl_2)
+                        exchange_row[5] = children_level_2[child_lvl_2]
+                        exchange_matrix_part.append(list(exchange_row))
+                exchange_matrix_part = node.dtype.rearrange_offsets(exchange_matrix_part, node.dtype)
+                exchange_matrix += exchange_matrix_part
+            # swapping the child-relations between the two levels
+            # clearing the previous data
+            sd.child_nodes = {}
+            # computing the combined offsets:
+            # iterating over the swaps
+            for ex_row in exchange_matrix:
+                # creating a new node at first level and setting the depth
+                if not ex_row[0] in sd.child_nodes:
+                    sd.child_nodes[ex_row[0]] = node.create_node()
+                    sd.child_nodes[ex_row[0]].d = ex_row[5].d + 2
+                # creating a new node at second level and setting the depth
+                if not ex_row[1] in sd.child_nodes[ex_row[0]].child_nodes:
+                    sd.child_nodes[ex_row[0]].child_nodes[ex_row[1]] = node.create_node()
+                    sd.child_nodes[ex_row[0]].set_offset(ex_row[1], ex_row[2])
+                    sd.child_nodes[ex_row[0]].child_nodes[ex_row[1]].d = ex_row[5].d + 1
+                # swapping the children at second level and the depth
+                sd.child_nodes[ex_row[0]].child_nodes[ex_row[1]].child_nodes[ex_row[3]] = ex_row[5]
+                sd.child_nodes[ex_row[0]].child_nodes[ex_row[1]].set_offset(ex_row[3], ex_row[4])
+    node.reinitialize()
+    node.reduce()
 
+
+def transpose(node, height, to_copy=False):
+    """
+    Guess what this function does?
+    :param node:
+    :param height: the height of the original matrix
+    :param to_copy: if false, the diagram will be transposed in place. If true, a copy of the diagram will be transposed
+    :return:
+    """
+    if to_copy:
+        import copy
+        node_t = copy.deepcopy(node)
+    else:
+        node_t = node
+    import numpy as np
+    # getting the log of the matrix height, representing the level in the diagram
+    height_log = int(np.ceil(np.log10(height)/np.log10(node_t.dtype.base)))
+    # if the height_log equals the number of variables in the diagram, the diagram equals its transpose
+    if height_log == node_t.d:
+        return
+    # the permutation chain for the first non-row index
+    height_variables = np.arange(height_log-1, -1, -1)
+    # and for all the others
+    change_vector = np.array([])
+    for i in range(node_t.d-height_log):
+        change_vector = np.hstack((change_vector, (height_variables+i)))
+    # executing the permutations
+    for permutation in change_vector:
+        exchange_variable_order_with_children(node_t, permutation)
+    return node_t
+
+
+def switch_variable_reference(node, depth):
+    import copy as cp
+    subdiagrams_at_level = list(node.get_subdiagrams(depth))
+    for sd in subdiagrams_at_level:
+        children = cp.copy(sd.child_nodes)
+        for i in range(node.dtype.base):
+            sd.child_nodes[node.dtype.base-1-i] = children[i]
+
+
+def hash_for_multiple_nodes(node1, node2):
+    """
+    This function creates a hash for multiple nodes. This hash is a long int, and can therefore not be used
+    for the builtin python __hash__() functions.
+    :param node1:
+    :param node2:
+    :return:
+    """
+    return hash(str(node1.__hash__())+str(node2.__hash__()))
+
+
+def multiplication_elementwise(diagram1, diagram2):
+    """
+    This function multiplies two diagram elementwise
+    (i.e. like numpy.multiply(d1, d2) or d1.*d2 in Matlab)
+    This method raises an out of bounds diagram exception if the two diagrams' sizes do not match.
+    :param diagram1: The first diagram
+    :param diagram2: The second diagram
+    :return: a diagram (a new object) of the elementwise multiplication
+    """
+    # The hashmap of the results, to minimize computations
+    hashmap_of_results = {}
+
+    # the recursive function
+    def multiplication_elementwise_rec(node1, node2, offset1, offset2):
+        # do we know the result already?
+        hash_of_current_operation = hash_for_multiple_nodes(node1, node2)
+        if hash_of_current_operation in hashmap_of_results:
+            return hashmap_of_results[hash_of_current_operation]
+
+        node = diagram1.__class__('', diagram_type=diagram1.__class__)
+
+        # Some argument checking
+        if node1.is_leaf() != node2.is_leaf():
+            raise OutOfBounds
+        elif node1.child_nodes[node1.child_nodes.keys()[0]].is_leaf():
+            node, new_offset = diagram1.dtype.create_leaves(node, np.multiply(node1.to_matrix(outer_offset=offset1), node2.to_matrix(outer_offset=offset2)))
+            node.d = depth = 1
+        else:
+            offset = {}
+            depth = 0
+            # looping over the different elements in the base
+            # no-offset diagram type?
+            if diagram1.offsets == {}:
+                for i in range(diagram1.dtype.base):
+                    node.child_nodes[i], offset[i], depth = \
+                        multiplication_elementwise_rec(node1.child_nodes[i], node2.child_nodes[i], None, None)
+            else:
+                for i in range(diagram1.dtype.base):
+                    node.child_nodes[i], offset[i], depth = \
+                        multiplication_elementwise_rec(node1.child_nodes[i], node2.child_nodes[i],
+                                   node1.dtype.to_mat(node1, offset1)[i], node1.dtype.to_mat(node1, offset1)[i])
+            depth += 1
+            node, new_offset = node.dtype.create_tuple(node, offset)
+            node.d = depth
+            # because, in all likelihood, the following has to be calculated anyways, calculating it now will
+            #  eliminate the need for another recursion through the diagram.
+        node.nodes
+        node.leaves
+        node.__hash__()
+        hashmap_of_results[hash_of_current_operation] = node
+        # TODO: the following should work ...
+        # node.__hash__()
+        # if to_reduce:
+        #     if not node.__hash__() in hashtable:
+        #         hashtable[node.__hash__()] = node
+        #     else:
+        #         node = hashtable[node.__hash__()]
+        return node, new_offset, depth
+
+    diagram, f_offset, _ = multiplication_elementwise_rec(diagram1, diagram2, diagram1.dtype.null_edge_value, diagram2.dtype.null_edge_value)
+    diagram.dtype.include_final_offset(diagram, f_offset)
+    diagram.reduce()
+    return diagram
+
+    # def sum(self):
+    #     """
+    #     This method returns the matrix represented by the diagram
+    #     :param rows:
+    #     :param cropping:
+    #     """
+    #     import numpy as np
+    #
+    #     # covering zero-matrices
+    #     if self.child_nodes == {}:
+    #         return self.null_value
+    #
+    #     def sum_rec(node, offset):
+    #         # making sure the node exists
+    #         if not node:
+    #             return 0
+    #         # checking whether the node is a leaf
+    #         elif node.is_leaf():
+    #             return np.sum(node.dtype.to_mat(node, offset))
+    #         else:
+    #             tmp_result = 0
+    #             # the recursive call
+    #             # checking for the kind of diagram. MTxxx?
+    #             if self.offsets == {}:
+    #                 for edge_name in node.child_nodes:
+    #                     tmp_result += sum_rec(node.child_nodes[edge_name], node.dtype.to_mat(node, 0, 0))
+    #             # or edge-value dd?
+    #             else:
+    #                 for edge_name in node.child_nodes:
+    #

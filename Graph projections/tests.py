@@ -572,11 +572,12 @@ def divide_conquer_kron():
 
 
 def test_mevdds():
-    from diagram_ternary import MT3DD, AEV3DD, MEV3DD
-    from diagram_binary import MT2DD, AEV2DD, MEV2DD, AABDD
-    mtdd = MT2DD()
-    aevdd = AEV2DD()
-    mevdd = MEV2DD()
+    from diagram_ternary import MT3DD, AEV3DD, MEV3DD, AA3EVDD
+    # from diagram_binary import MT2DD, AEV2DD, MEV2DD, AABDD
+    mtdd = MT3DD()
+    aevdd = AEV3DD()
+    mevdd = MEV3DD()
+    aadd = AA3EVDD()
     mat1 = np.array([[8, 20, 8], [3, -1, 0], [2, 0, 1], [0, 5, 1], [1, 5, 1], [2, 10, 2], [11, 15, 11]], dtype=float)
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
     print 'Reference:'
@@ -599,21 +600,166 @@ def test_mevdds():
     print diagram3.to_matrix(7, True)
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
     print 'AADD'
-    aadd = AABDD()
     diagram4 = aadd.create(mat1, 0, True)
     print 'Complexity: ' + str(diagram4.complexity())
     print diagram4.to_matrix(7, True)
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
-    for node in diagram4.nodes:
-        try:
-            if node.child_nodes[0].is_leaf():
-                print node.offsets
-        except TypeError:
-            pass
+    # for node in diagram4.nodes:
+    #     try:
+    #         if node.child_nodes[0].is_leaf():
+    #             print node.offsets
+    #     except TypeError:
+    #         pass
+
+
+def test_variable_reordering():
+    from diagram_ternary import MT3DD, AEV3DD, MEV3DD, AAEV3DD
+    # from diagram_binary import MTDD, AEV2DD, MEV2DD, AAEV2DD
+    mtdd = MT3DD()
+    aevdd = AEV3DD()
+    mevdd = MEV3DD()
+    aadd = AAEV3DD()
+    # mat1 = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12], [13, 14, 15], [16, 17, 18], [19, 20, 21]], dtype=float)
+    mat1 = np.array([[1, 2, 3], [-4, -5, -6], [7, 8, 9], [-10, 11, -12], [13, 14, 15], [16, -17, 18], [19, 20, 21]], dtype=float)
+    # np.random.seed(0)
+    # mat1 = np.random.random((7,3))
+    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    print 'Reference:'
+    print 'Complexity: ' + str(np.prod(mat1.shape))
+    print mat1
+    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    print 'MTxDD'
+    diagram1 = mtdd.create(mat1, 0, True)
+    print 'Complexity: ' + str(diagram1.complexity())
+    print diagram1.to_matrix(7, True)
+    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    print 'additive edge-value DD'
+    diagram2 = aevdd.create(mat1, 0, True)
+    print 'Complexity: ' + str(diagram2.complexity())
+    print diagram2.to_matrix(7, True)
+    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    print 'multiplicative edge-value DD'
+    diagram3 = mevdd.create(mat1, 0, True)
+    print 'Complexity: ' + str(diagram3.complexity())
+    print diagram3.to_matrix(7, True)
+    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    print 'AADD'
+    diagram4 = aadd.create(mat1, 0, True)
+    print 'Complexity: ' + str(diagram4.complexity())
+    print diagram4.to_matrix(7, True)
+    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    print 'Reference:'
+    print 'Complexity: ' + str(np.prod(mat1.shape))
+    print mat1.T
+    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    # The transposes
+    from diagram_computations import transpose
+    transpose(diagram1, 7)
+    print 'MTxDD - transposed'
+    print 'Complexity: ' + str(diagram1.complexity())
+    print diagram1.to_matrix(3, True)
+    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    transpose(diagram2, 7)
+    print 'AEVxDD - transposed'
+    print 'Complexity: ' + str(diagram2.complexity())
+    print diagram2.to_matrix(3, True)
+    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    transpose(diagram3, 7)
+    print 'MEVxDD - transposed'
+    print 'Complexity: ' + str(diagram3.complexity())
+    print diagram3.to_matrix(3, True)
+    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    transpose(diagram4, 7)
+    print 'AAEVxDD - transposed'
+    print 'Complexity: ' + str(diagram4.complexity())
+    print diagram4.to_matrix(3, True)
+    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    print 'The sums:'
+    print 'The reference:   ' + str(np.sum(mat1))
+    print 'MTxDD:           ' + str(diagram1.sum())
+    print 'AEVxDD:          ' + str(diagram2.sum())
+    print 'MEVxDD:          ' + str(diagram3.sum())
+    print 'AAEVxDD:         ' + str(diagram4.sum())
+
+
+def test_elementwise_multiplication():
+    from diagram_computations import multiplication_elementwise
+    # from diagram_ternary import MT3DD, AEV3DD, MEV3DD, AAEV3DD
+    from diagram_binary import MT2DD, AEV2DD, MEV2DD, AAEV2DD
+    mtdd = MT2DD()
+    # mtdd = MT3DD()
+    aevdd = AEV2DD()
+    # aevdd = AEV3DD()
+    mevdd = MEV2DD()
+    # mevdd = MEV3DD()
+    aadd = AAEV2DD()
+    # aadd = AAEV3DD()
+    # mat1 = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12], [13, 14, 15], [16, 17, 18], [19, 20, 21]], dtype=float)
+    mat1 = np.array([[1, 2, 3], [-4, -5, -6], [7, 8, 9], [-10, 11, -12], [13, 14, 15], [16, -17, 18], [19, 20, 21]], dtype=float)
+    # np.random.seed(0)
+    # mat1 = np.random.random((7,3))
+    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    print 'Reference:'
+    print 'Complexity: ' + str(np.prod(mat1.shape))
+    print np.multiply(mat1, mat1)
+    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    print 'MTxDD'
+    diagram1 = mtdd.create(mat1, 0, True)
+    diagram2 = mtdd.create(mat1, 0, True)
+    print multiplication_elementwise(diagram1, diagram2).to_matrix(7, True)
+    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    print 'additive edge-value DD'
+    diagram2 = aevdd.create(mat1, 0, True)
+    print 'Complexity: ' + str(diagram2.complexity())
+    print diagram2.to_matrix(7, True)
+    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    print 'multiplicative edge-value DD'
+    diagram3 = mevdd.create(mat1, 0, True)
+    print 'Complexity: ' + str(diagram3.complexity())
+    print diagram3.to_matrix(7, True)
+    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    print 'AADD'
+    diagram4 = aadd.create(mat1, 0, True)
+    print 'Complexity: ' + str(diagram4.complexity())
+    print diagram4.to_matrix(7, True)
+    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    print 'Reference:'
+    print 'Complexity: ' + str(np.prod(mat1.shape))
+    print mat1.T
+    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    # The transposes
+    from diagram_computations import transpose
+    transpose(diagram1, 7)
+    print 'MTxDD - transposed'
+    print 'Complexity: ' + str(diagram1.complexity())
+    print diagram1.to_matrix(3, True)
+    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    transpose(diagram2, 7)
+    print 'AEVxDD - transposed'
+    print 'Complexity: ' + str(diagram2.complexity())
+    print diagram2.to_matrix(3, True)
+    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    transpose(diagram3, 7)
+    print 'MEVxDD - transposed'
+    print 'Complexity: ' + str(diagram3.complexity())
+    print diagram3.to_matrix(3, True)
+    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    transpose(diagram4, 7)
+    print 'AAEVxDD - transposed'
+    print 'Complexity: ' + str(diagram4.complexity())
+    print diagram4.to_matrix(3, True)
+    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    print 'The sums:'
+    print 'The reference:   ' + str(np.sum(mat1))
+    print 'MTxDD:           ' + str(diagram1.sum())
+    print 'AEVxDD:          ' + str(diagram2.sum())
+    print 'MEVxDD:          ' + str(diagram3.sum())
+    print 'AAEVxDD:         ' + str(diagram4.sum())
 
 
 if __name__ == "__main__":
-    test_mevdds()
+    test_elementwise_multiplication()
+    # test_mevdds()
     # divide_conquer_kron()
     # divide_conquer_kron()
     # test_mevdds()
