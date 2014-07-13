@@ -502,7 +502,7 @@ def switch_variable_reference(node, depth):
             sd.child_nodes[node.dtype.base-1-i] = children[i]
 
 
-def hash_for_multiple_nodes(node1, node2):
+def hash_for_multiple_nodes(node1, node2, offset1, offset2):
     """
     This function creates a hash for multiple nodes. This hash is a long int, and can therefore not be used
     for the builtin python __hash__() functions.
@@ -510,10 +510,10 @@ def hash_for_multiple_nodes(node1, node2):
     :param node2:
     :return:
     """
-    return hash(str(node1.__hash__())+str(node2.__hash__()))
+    return hash(str(node1.__hash__()) + str(node2.__hash__()) + str(offset1) + str(offset2))
 
 
-def multiplication_elementwise(diagram1, diagram2):
+def multiply_elementwise(diagram1, diagram2, dec_digits=-1):
     """
     This function multiplies two diagram elementwise
     (i.e. like numpy.multiply(d1, d2) or d1.*d2 in Matlab)
@@ -522,24 +522,59 @@ def multiplication_elementwise(diagram1, diagram2):
     :param diagram2: The second diagram
     :return: a diagram (a new object) of the elementwise multiplication
     """
+    import numpy
+    return operation_elementwise(diagram1, diagram2, numpy.multiply, dec_digits)
+
+
+def addition_elementwise(diagram1, diagram2, dec_digits=-1):
+    """
+    This function provides normal matrix addition.
+    :param diagram1:
+    :param diagram2:
+    :return:
+    """
+    import numpy
+    return operation_elementwise(diagram1, diagram2, numpy.add, dec_digits)
+
+
+def operation_elementwise(diagram1, diagram2, operation, precision):
+    """
+    This function multiplies two diagram elementwise
+    (i.e. like numpy.multiply(d1, d2) or d1.*d2 in Matlab)
+    This method raises an out of bounds diagram exception if the two diagrams' sizes do not match.
+    :param diagram1: The first diagram
+    :param diagram2: The second diagram
+    :param operation: The operation to be performed as a function of the numpy package, i.e. np.multiply
+    :return: a diagram (a new object) of the elementwise multiplication
+    """
     # The hashmap of the results, to minimize computations
     hashmap_of_results = {}
+    dd = diagram1.dtype()
+
+    if precision != -1:
+        def rounding(array):
+            return np.round(array, precision)
+    else:
+        def rounding(array):
+            return array
 
     # the recursive function
-    def multiplication_elementwise_rec(node1, node2, offset1, offset2):
+    def operation_elementwise_rec(node1, node2, offset1, offset2):
         # do we know the result already?
-        hash_of_current_operation = hash_for_multiple_nodes(node1, node2)
+        hash_of_current_operation = hash_for_multiple_nodes(node1, node2, offset1, offset2)
         if hash_of_current_operation in hashmap_of_results:
             return hashmap_of_results[hash_of_current_operation]
 
-        node = diagram1.__class__('', diagram_type=diagram1.__class__)
+        node = diagram1.__class__('', diagram_type=diagram1.dtype)
 
         # Some argument checking
         if node1.is_leaf() != node2.is_leaf():
             raise OutOfBounds
+        elif node1.is_leaf() and node2.is_leaf():
+            return rounding(operation(node1.value, node2.value))
         elif node1.child_nodes[node1.child_nodes.keys()[0]].is_leaf():
-            node, new_offset = diagram1.dtype.create_leaves(node, np.multiply(node1.to_matrix(outer_offset=offset1), node2.to_matrix(outer_offset=offset2)))
             node.d = depth = 1
+            node, new_offset = dd.create_leaves(node, rounding(operation(node1.to_matrix(outer_offset=offset1), node2.to_matrix(outer_offset=offset2)))[0])
         else:
             offset = {}
             depth = 0
@@ -548,21 +583,21 @@ def multiplication_elementwise(diagram1, diagram2):
             if diagram1.offsets == {}:
                 for i in range(diagram1.dtype.base):
                     node.child_nodes[i], offset[i], depth = \
-                        multiplication_elementwise_rec(node1.child_nodes[i], node2.child_nodes[i], None, None)
+                        operation_elementwise_rec(node1.child_nodes[i], node2.child_nodes[i], None, None)
             else:
                 for i in range(diagram1.dtype.base):
                     node.child_nodes[i], offset[i], depth = \
-                        multiplication_elementwise_rec(node1.child_nodes[i], node2.child_nodes[i],
-                                   node1.dtype.to_mat(node1, offset1)[i], node1.dtype.to_mat(node1, offset1)[i])
+                        operation_elementwise_rec(node1.child_nodes[i], node2.child_nodes[i],
+                                   node1.dtype.to_mat(node1, node1.offsets[i], offset1), node2.dtype.to_mat(node2, node2.offsets[i], offset2))
             depth += 1
-            node, new_offset = node.dtype.create_tuple(node, offset)
+            node, new_offset = dd.create_tuple(node, offset)
             node.d = depth
             # because, in all likelihood, the following has to be calculated anyways, calculating it now will
             #  eliminate the need for another recursion through the diagram.
         node.nodes
         node.leaves
         node.__hash__()
-        hashmap_of_results[hash_of_current_operation] = node
+        hashmap_of_results[hash_of_current_operation] = [node, new_offset, depth]
         # TODO: the following should work ...
         # node.__hash__()
         # if to_reduce:
@@ -572,38 +607,58 @@ def multiplication_elementwise(diagram1, diagram2):
         #         node = hashtable[node.__hash__()]
         return node, new_offset, depth
 
-    diagram, f_offset, _ = multiplication_elementwise_rec(diagram1, diagram2, diagram1.dtype.null_edge_value, diagram2.dtype.null_edge_value)
-    diagram.dtype.include_final_offset(diagram, f_offset)
+    diagram, f_offset, _ = operation_elementwise_rec(diagram1, diagram2, diagram1.dtype.null_edge_value, diagram2.dtype.null_edge_value)
+    dd.include_final_offset(diagram, f_offset)
     diagram.reduce()
     return diagram
 
-    # def sum(self):
-    #     """
-    #     This method returns the matrix represented by the diagram
-    #     :param rows:
-    #     :param cropping:
-    #     """
-    #     import numpy as np
-    #
-    #     # covering zero-matrices
-    #     if self.child_nodes == {}:
-    #         return self.null_value
-    #
-    #     def sum_rec(node, offset):
-    #         # making sure the node exists
-    #         if not node:
-    #             return 0
-    #         # checking whether the node is a leaf
-    #         elif node.is_leaf():
-    #             return np.sum(node.dtype.to_mat(node, offset))
-    #         else:
-    #             tmp_result = 0
-    #             # the recursive call
-    #             # checking for the kind of diagram. MTxxx?
-    #             if self.offsets == {}:
-    #                 for edge_name in node.child_nodes:
-    #                     tmp_result += sum_rec(node.child_nodes[edge_name], node.dtype.to_mat(node, 0, 0))
-    #             # or edge-value dd?
-    #             else:
-    #                 for edge_name in node.child_nodes:
-    #
+
+def sum_over_all(diagram1):
+    """
+    This function calculates the sum of the diagram
+    :param diagram1: The first diagram
+    :return: a float
+    """
+    # The hashmap of the results, to minimize computations
+    hashmap_of_results = {}
+
+    # the recursive function
+    def sum_rec(node1, offset1):
+        # do we know the result already?
+        hash_of_current_operation = hash_for_multiple_nodes(node1, node1, offset1, None)
+        if hash_of_current_operation in hashmap_of_results:
+            return hashmap_of_results[hash_of_current_operation]
+
+        node = diagram1.__class__('', diagram_type=diagram1.dtype)
+
+        # Some argument checking
+        if node1.is_leaf():
+            return node1.value
+        elif node1.child_nodes[node1.child_nodes.keys()[0]].is_leaf():
+            return np.sum(node1.to_matrix(outer_offset=offset1))
+        else:
+            tmp_result = 0
+            # looping over the different elements in the base
+            # no-offset diagram type?
+            if diagram1.offsets == {}:
+                for i in range(diagram1.dtype.base):
+                    tmp_result += sum_rec(node1.child_nodes[i], None)
+            else:
+                for i in range(diagram1.dtype.base):
+                    tmp_result += sum_rec(node1.child_nodes[i], node1.dtype.to_mat(node1, node1.offsets[i], offset1))
+            # because, in all likelihood, the following has to be calculated anyways, calculating it now will
+            #  eliminate the need for another recursion through the diagram.
+        hashmap_of_results[hash_of_current_operation] = tmp_result
+        return tmp_result
+
+    return sum_rec(diagram1, diagram1.dtype.null_edge_value)
+
+
+def dot_product(vector_diagram1, vector_diagram2, dec_digits=-1):
+    """
+    This function computes the dot product (inner product) of two diagrams, each representing a vector.
+    :param vector_diagram1:
+    :param vector_diagram2:
+    :return:
+    """
+    return sum_over_all(multiply_elementwise(vector_diagram1, vector_diagram2, dec_digits))

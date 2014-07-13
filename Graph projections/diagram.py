@@ -12,6 +12,7 @@ class Diagram:
     """
     This is an interface/abstract class for all different diagram types
     """
+    __metaclass__ = Singleton
 
     def __init__(self, nt, lt):
         """
@@ -259,7 +260,7 @@ class AEVxDD(Diagram):
     """
     This is the class for all additive edge-valued DDs of arbitrary basis. The basis is set at initialization
     """
-    null_edge_value = [0]
+    null_edge_value = 0
 
     def __init__(self, basis):
         from node import Node, Leaf
@@ -296,7 +297,7 @@ class AEVxDD(Diagram):
             leaf.value = leaf.value + offset
 
     @staticmethod
-    def to_mat(node, loffset=0, goffset=0, reorder=False):
+    def to_mat(node, loffset=0, goffset=None, reorder=False):
         """
         The diagram-type specific function to convert nodes to matrices
         """
@@ -402,7 +403,7 @@ class MEVxDD(Diagram):
         if isinstance(node, Leaf):
             return np.array((node.value * loffset))[None]
         elif isinstance(node, Node) or reorder:
-            return loffset * goffset
+            return np.multiply(loffset, goffset)
         else:
             raise TypeError
 

@@ -682,8 +682,8 @@ def test_variable_reordering():
     print 'AAEVxDD:         ' + str(diagram4.sum())
 
 
-def test_elementwise_multiplication():
-    from diagram_computations import multiplication_elementwise
+def test_elementwise_operations():
+    from diagram_computations import multiply_elementwise, addition_elementwise, sum_over_all, dot_product
     # from diagram_ternary import MT3DD, AEV3DD, MEV3DD, AAEV3DD
     from diagram_binary import MT2DD, AEV2DD, MEV2DD, AAEV2DD
     mtdd = MT2DD()
@@ -695,70 +695,76 @@ def test_elementwise_multiplication():
     aadd = AAEV2DD()
     # aadd = AAEV3DD()
     # mat1 = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12], [13, 14, 15], [16, 17, 18], [19, 20, 21]], dtype=float)
-    mat1 = np.array([[1, 2, 3], [-4, -5, -6], [7, 8, 9], [-10, 11, -12], [13, 14, 15], [16, -17, 18], [19, 20, 21]], dtype=float)
-    # np.random.seed(0)
-    # mat1 = np.random.random((7,3))
+    # mat1 = np.array([[1, 2, 3], [-4, -5, -6], [7, 8, 9], [-10, 11, -12], [13, 14, 15], [16, -17, 18], [19, 20, 21]], dtype=float)
+    np.random.seed(0)
+    mat1 = np.random.random((7, 3))
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
-    print 'Reference:'
+    print 'The matrix:'
+    print mat1
+    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    print 'Reference (MULTIPLICATION):'
     print 'Complexity: ' + str(np.prod(mat1.shape))
     print np.multiply(mat1, mat1)
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
     print 'MTxDD'
     diagram1 = mtdd.create(mat1, 0, True)
     diagram2 = mtdd.create(mat1, 0, True)
-    print multiplication_elementwise(diagram1, diagram2).to_matrix(7, True)
+    print multiply_elementwise(diagram1, diagram2).to_matrix(7, True)
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
-    print 'additive edge-value DD'
-    diagram2 = aevdd.create(mat1, 0, True)
-    print 'Complexity: ' + str(diagram2.complexity())
-    print diagram2.to_matrix(7, True)
+    print 'AEVxDD'
+    diagram3 = aevdd.create(mat1, 0, True)
+    diagram4 = aevdd.create(mat1, 0, True)
+    print multiply_elementwise(diagram3, diagram4).to_matrix(7, True)
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
-    print 'multiplicative edge-value DD'
-    diagram3 = mevdd.create(mat1, 0, True)
-    print 'Complexity: ' + str(diagram3.complexity())
-    print diagram3.to_matrix(7, True)
+    print 'MEVxDD'
+    diagram5 = mevdd.create(mat1, 0, True)
+    diagram6 = mevdd.create(mat1, 0, True)
+    print multiply_elementwise(diagram5, diagram6).to_matrix(7, True)
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
-    print 'AADD'
-    diagram4 = aadd.create(mat1, 0, True)
-    print 'Complexity: ' + str(diagram4.complexity())
-    print diagram4.to_matrix(7, True)
+    print 'AAEVxDD'
+    diagram7 = aadd.create(mat1, 0, True)
+    diagram8 = aadd.create(mat1, 0, True)
+    print multiply_elementwise(diagram7, diagram8).to_matrix(7, True)
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
-    print 'Reference:'
+    print 'The matrix:'
+    print mat1
+    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    print 'Reference (ADDITION):'
     print 'Complexity: ' + str(np.prod(mat1.shape))
-    print mat1.T
+    print np.add(mat1, mat1)
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
-    # The transposes
-    from diagram_computations import transpose
-    transpose(diagram1, 7)
-    print 'MTxDD - transposed'
-    print 'Complexity: ' + str(diagram1.complexity())
-    print diagram1.to_matrix(3, True)
+    print 'MTxDD'
+    diagram1 = mtdd.create(mat1, 0, True)
+    diagram2 = mtdd.create(mat1, 0, True)
+    print addition_elementwise(diagram1, diagram2).to_matrix(7, True)
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
-    transpose(diagram2, 7)
-    print 'AEVxDD - transposed'
-    print 'Complexity: ' + str(diagram2.complexity())
-    print diagram2.to_matrix(3, True)
+    print 'AEVxDD'
+    diagram3 = aevdd.create(mat1, 0, True)
+    diagram4 = aevdd.create(mat1, 0, True)
+    print addition_elementwise(diagram3, diagram4).to_matrix(7, True)
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
-    transpose(diagram3, 7)
-    print 'MEVxDD - transposed'
-    print 'Complexity: ' + str(diagram3.complexity())
-    print diagram3.to_matrix(3, True)
+    print 'MEVxDD'
+    diagram5 = mevdd.create(mat1, 0, True)
+    diagram6 = mevdd.create(mat1, 0, True)
+    print addition_elementwise(diagram5, diagram6).to_matrix(7, True)
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
-    transpose(diagram4, 7)
-    print 'AAEVxDD - transposed'
-    print 'Complexity: ' + str(diagram4.complexity())
-    print diagram4.to_matrix(3, True)
+    print 'AAEVxDD'
+    diagram7 = aadd.create(mat1, 0, True)
+    diagram8 = aadd.create(mat1, 0, True)
+    print addition_elementwise(diagram7, diagram8).to_matrix(7, True)
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
-    print 'The sums:'
-    print 'The reference:   ' + str(np.sum(mat1))
-    print 'MTxDD:           ' + str(diagram1.sum())
-    print 'AEVxDD:          ' + str(diagram2.sum())
-    print 'MEVxDD:          ' + str(diagram3.sum())
-    print 'AAEVxDD:         ' + str(diagram4.sum())
+    print 'AAEVxDD - sum'
+    diagram9 = aadd.create(mat1, 0, True)
+    diagram10 = aadd.create(mat1, 0, True)
+    print np.sum(mat1)
+    print sum_over_all(diagram10)
+    print np.sum(np.multiply(mat1, mat1))
+    print dot_product(diagram9, diagram10)
+    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
 
 
 if __name__ == "__main__":
-    test_elementwise_multiplication()
+    test_elementwise_operations()
     # test_mevdds()
     # divide_conquer_kron()
     # divide_conquer_kron()
