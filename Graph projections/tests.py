@@ -763,8 +763,78 @@ def test_elementwise_operations():
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
 
 
+def test_multiplications():
+    from diagram_computations import multiply_elementwise, addition_elementwise, sum_over_all, dot_product, multiply_matrix_by_column_vector, multiply
+    # from diagram_ternary import MT3DD, AEV3DD, MEV3DD, AAEV3DD
+    from diagram_binary import MT2DD, AEV2DD, MEV2DD, AAEV2DD
+    mtdd = MT2DD()
+    # mtdd = MT3DD()
+    aevdd = AEV2DD()
+    # aevdd = AEV3DD()
+    mevdd = MEV2DD()
+    # mevdd = MEV3DD()
+    aadd = AAEV2DD()
+    # aadd = AAEV3DD()
+    # mat1 = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12], [13, 14, 15], [16, 17, 18], [19, 20, 21]], dtype=float)
+    mat2 = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]], dtype=float)
+    vec1 = np.array([2, -3, 5])
+    mat1 = np.array([[1, 2, 3], [-4, -5, -6], [7, 8, 9], [-10, 11, -12], [13, 14, 15], [16, -17, 18], [19, 20, 21]], dtype=float)
+    # np.random.seed(0)
+    # mat1 = np.random.random((7, 3))
+    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    print 'The matrix:'
+    print mat1
+    print 'The vector:'
+    print vec1[None].T
+    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    print 'Reference (MULTIPLICATION):'
+    print 'Complexity: ' + str(np.prod(mat1.shape))
+    print np.dot(mat1, vec1[None].T)
+    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    print 'MTxDD'
+    diagram1 = mtdd.create(mat1, 0, True)
+    diagram2 = mtdd.create(vec1, 0, True)
+    print multiply_matrix_by_column_vector(diagram1, diagram2).to_matrix(7, True)
+    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    print 'AEVxDD'
+    diagram3 = aevdd.create(mat1, 0, True)
+    diagram4 = aevdd.create(vec1, 0, True)
+    print multiply_matrix_by_column_vector(diagram3, diagram4).to_matrix(7, True)
+    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    print 'MEVxDD'
+    diagram5 = mevdd.create(mat1, 0, True)
+    diagram6 = mevdd.create(vec1, 0, True)
+    print multiply_matrix_by_column_vector(diagram5, diagram6).to_matrix(7, True)
+    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    print 'AAEVxDD'
+    diagram7 = aadd.create(mat1, 0, True)
+    diagram8 = aadd.create(vec1, 0, True)
+    print multiply_matrix_by_column_vector(diagram7, diagram8).to_matrix(7, True)
+    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    print 'The matrix:'
+    print mat1
+    print 'The 2nd matrix:'
+    print mat2
+    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    print 'Reference (MULTIPLICATION):'
+    print np.dot(mat1, mat2)
+    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    print 'MTxDD'
+    print multiply(diagram1, diagram2, 3).to_matrix(7, True)
+    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    print 'AEVxDD'
+    print multiply(diagram3, diagram4, 3).to_matrix(7, True)
+    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    print 'MEVxDD'
+    print multiply(diagram5, diagram6, 3).to_matrix(7, True)
+    print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    print 'AAEVxDD'
+    print multiply(diagram7, diagram8, 3).to_matrix(7, True)
+
+
 if __name__ == "__main__":
-    test_elementwise_operations()
+    test_multiplications()
+    # test_elementwise_operations()
     # test_mevdds()
     # divide_conquer_kron()
     # divide_conquer_kron()

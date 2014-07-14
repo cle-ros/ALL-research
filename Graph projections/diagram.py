@@ -48,13 +48,6 @@ class Diagram:
         raise NotImplementedError
 
     @staticmethod
-    def sum(diagram, offset):
-        """
-        the helper function for summing a diagram
-        """
-        raise NotImplementedError
-
-    @staticmethod
     def scalar_mult(diagram, scalar):
         """
         The helper function for scalar multiplication
@@ -248,13 +241,6 @@ class MTxDD(Diagram):
         for leaf in diagram.leaves:
             leaf.value *= scalar
 
-    @staticmethod
-    def sum(diagram, offset):
-        """
-        the helper function for summing a diagram
-        """
-        raise NotImplementedError
-
 
 class AEVxDD(Diagram):
     """
@@ -329,13 +315,6 @@ class AEVxDD(Diagram):
             else:
                 for oindex in node.offsets:
                     node.offsets[oindex] *= scalar
-
-    @staticmethod
-    def sum(diagram, offset):
-        """
-        the helper function for summing a diagram
-        """
-        raise NotImplementedError
 
 
 class MEVxDD(Diagram):
