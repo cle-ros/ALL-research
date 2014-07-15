@@ -789,27 +789,36 @@ def test_multiplications():
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
     print 'Reference (MULTIPLICATION):'
     print 'Complexity: ' + str(np.prod(mat1.shape))
-    print np.dot(mat1, vec1[None].T)
+    ref_mat = np.dot(mat1, vec1[None].T)
+    print ref_mat
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
     print 'MTxDD'
     diagram1 = mtdd.create(mat1, 0, True)
     diagram2 = mtdd.create(vec1, 0, True)
-    print multiply_matrix_by_column_vector(diagram1, diagram2).to_matrix(7, True)
+    mtdd_mat = multiply_matrix_by_column_vector(diagram1, diagram2).to_matrix(7, True)
+    print mtdd_mat
+    print 'Error:   ' + str(np.sum(mtdd_mat-ref_mat))
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
     print 'AEVxDD'
     diagram3 = aevdd.create(mat1, 0, True)
     diagram4 = aevdd.create(vec1, 0, True)
-    print multiply_matrix_by_column_vector(diagram3, diagram4).to_matrix(7, True)
+    aevdd_mat = multiply_matrix_by_column_vector(diagram3, diagram4).to_matrix(7, True)
+    print aevdd_mat
+    print 'Error:   ' + str(np.sum(aevdd_mat-ref_mat))
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
     print 'MEVxDD'
     diagram5 = mevdd.create(mat1, 0, True)
     diagram6 = mevdd.create(vec1, 0, True)
-    print multiply_matrix_by_column_vector(diagram5, diagram6).to_matrix(7, True)
+    mevdd_mat = multiply_matrix_by_column_vector(diagram5, diagram6).to_matrix(7, True)
+    print mevdd_mat
+    print 'Error:   ' + str(np.sum(mevdd_mat-ref_mat))
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
     print 'AAEVxDD'
     diagram7 = aadd.create(mat1, 0, True)
     diagram8 = aadd.create(vec1, 0, True)
-    print multiply_matrix_by_column_vector(diagram7, diagram8).to_matrix(7, True)
+    aadd_mat = multiply_matrix_by_column_vector(diagram7, diagram8).to_matrix(7, True)
+    print aadd_mat
+    print 'Error:   ' + str(np.sum(aadd_mat-ref_mat))
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
     print 'The matrix:'
     print mat1
@@ -817,19 +826,36 @@ def test_multiplications():
     print mat2
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
     print 'Reference (MULTIPLICATION):'
-    print np.dot(mat1, mat2)
+    ref_mat = np.dot(mat1, mat2)
+    print ref_mat
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
     print 'MTxDD'
-    print multiply(diagram1, diagram2, 3).to_matrix(7, True)
+    diagram1 = mtdd.create(mat1, 0, True)
+    diagram2 = mtdd.create(mat2, 0, True)
+    mtdd_mat = multiply(diagram1, diagram2, 3).to_matrix(7, True)
+    print mtdd_mat
+    print 'Error:   ' + str(np.sum(mtdd_mat-ref_mat))
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
     print 'AEVxDD'
-    print multiply(diagram3, diagram4, 3).to_matrix(7, True)
+    diagram3 = aevdd.create(mat1, 0, True)
+    diagram4 = aevdd.create(mat2, 0, True)
+    aevdd_mat = multiply(diagram3, diagram4, 3).to_matrix(7, True)
+    print aevdd_mat
+    print 'Error:   ' + str(np.sum(aevdd_mat-ref_mat))
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
     print 'MEVxDD'
-    print multiply(diagram5, diagram6, 3).to_matrix(7, True)
+    diagram5 = mevdd.create(mat1, 0, True)
+    diagram6 = mevdd.create(mat2, 0, True)
+    mevdd_mat = multiply(diagram5, diagram6, 3).to_matrix(7, True)
+    print mevdd_mat
+    print 'Error:   ' + str(np.sum(mevdd_mat-ref_mat))
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
     print 'AAEVxDD'
-    print multiply(diagram7, diagram8, 3).to_matrix(7, True)
+    diagram7 = aadd.create(mat1, 0, True)
+    diagram8 = aadd.create(mat2, 0, True)
+    aadd_mat = multiply(diagram7, diagram8, 3).to_matrix(7, True)
+    print aadd_mat
+    print 'Error:   ' + str(np.sum(aadd_mat-ref_mat))
 
 
 if __name__ == "__main__":

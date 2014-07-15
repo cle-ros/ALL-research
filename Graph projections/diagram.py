@@ -198,10 +198,10 @@ class MTxDD(Diagram):
         for i in range(self.base):
             # if zero_suppressed
             parent_node.child_nodes[i] = self.leaf_type(leaf_values[i], leaf_values[i], diagram_type=self.__class__)
-        return parent_node, 0
+        return parent_node, 0.0
 
     def create_tuple(self, node, offset):
-        return node, 0
+        return node, 0.0
 
     @staticmethod
     def to_mat(leaf, loffset=None, goffset=None, reorder=False):
@@ -219,7 +219,7 @@ class MTxDD(Diagram):
         """
         This function includes an offset remaining after creating the diagram into the diagram.
         """
-        if offset != 0:
+        if offset != 0.0:
             for leaf in node.leaves:
                 leaf.value = leaf.value + offset
 
@@ -246,7 +246,7 @@ class AEVxDD(Diagram):
     """
     This is the class for all additive edge-valued DDs of arbitrary basis. The basis is set at initialization
     """
-    null_edge_value = 0
+    null_edge_value = 0.0
 
     def __init__(self, basis):
         from node import Node, Leaf
@@ -258,8 +258,8 @@ class AEVxDD(Diagram):
         This function creates the leaves from the values given, and the node one step up
         """
         from node import Leaf
-        parent_node.child_nodes[0] = Leaf(0, 0, diagram_type=AEVxDD)
-        parent_node.offsets[0] = 0
+        parent_node.child_nodes[0] = Leaf(0.0, 0, diagram_type=AEVxDD)
+        parent_node.offsets[0] = 0.0
         for i in range(1, self.base, 1):
             parent_node.child_nodes[i] = parent_node.child_nodes[0]
             parent_node.offsets[i] = leaf_values[i] - leaf_values[0]
@@ -269,7 +269,7 @@ class AEVxDD(Diagram):
         """
         Computes the offset for a node, given the offset of its children
         """
-        node.offsets[0] = 0
+        node.offsets[0] = 0.0
         for i in range(1, self.base, 1):
             node.offsets[i] = offset[i] - offset[0]
         return node, offset[0]
@@ -283,7 +283,7 @@ class AEVxDD(Diagram):
             leaf.value = leaf.value + offset
 
     @staticmethod
-    def to_mat(node, loffset=0, goffset=None, reorder=False):
+    def to_mat(node, loffset=0.0, goffset=None, reorder=False):
         """
         The diagram-type specific function to convert nodes to matrices
         """
@@ -321,7 +321,7 @@ class MEVxDD(Diagram):
     """
     This is the class for all additive edge-valued DDs of arbitrary basis. The basis is set at initialization
     """
-    null_edge_value = [1]
+    null_edge_value = 1.0
 
     def __init__(self, basis):
         from node import Node, Leaf
@@ -334,11 +334,11 @@ class MEVxDD(Diagram):
         """
         from node import Leaf
         import numpy
-        parent_node.child_nodes[0] = Leaf(1, 1, diagram_type=MEVxDD)
+        parent_node.child_nodes[0] = Leaf(1.0, 1, diagram_type=MEVxDD)
         try:
             base_factor = leaf_values[numpy.nonzero(leaf_values)[0][0]]
         except IndexError:
-            base_factor = 1
+            base_factor = 1.0
         for i in range(self.base):
             parent_node.child_nodes[i] = parent_node.child_nodes[0]
             parent_node.offsets[i] = leaf_values[i] / base_factor
@@ -348,7 +348,7 @@ class MEVxDD(Diagram):
         """
         Computes the offset for a node, given the offset of its children
         """
-        base_factor = offset[0] if offset[0] != 0 else 1
+        base_factor = offset[0] if offset[0] != 0.0 else 1.0
         for i in range(self.base):
             node.offsets[i] = offset[i] / base_factor
         return node, offset[0]
@@ -372,7 +372,7 @@ class MEVxDD(Diagram):
             leaf.value = leaf.value * offset
 
     @staticmethod
-    def to_mat(node, loffset=1, goffset=1, reorder=False):
+    def to_mat(node, loffset=1.0, goffset=1.0, reorder=False):
         """
         The diagram-type specific function to convert nodes to matrices
         """
@@ -391,7 +391,7 @@ class MEVxDD(Diagram):
         """
         This method recomputes the offsets of different nodes in the DD after their encoded variable has changed.
         """
-        base_factor = offsets[0][0] if offsets[0] != 0 else 1
+        base_factor = offsets[0][0] if offsets[0] != 0.0 else 1.0
         return offsets[0][0], [offsets[i][0]/base_factor for i in range(base)]
 
     @staticmethod
@@ -407,7 +407,8 @@ class AAxEVDD(Diagram):
     """
     This class gives a generalization of  Scott Sanner's AADDs
     """
-    null_edge_value = [0, 1]
+    import numpy
+    null_edge_value = numpy.array([0.0, 1.0])
 
     def __init__(self, basis):
         from node import Node, Leaf
@@ -427,7 +428,7 @@ class AAxEVDD(Diagram):
         # TODO: find generalization!!
         import numpy as np
         # creating the leaf object
-        node.child_nodes[0] = self.leaf_type(0, 0, diagram_type=self.__class__)
+        node.child_nodes[0] = self.leaf_type(0.0, 0, diagram_type=self.__class__)
 
         # creating the offsets
         # deciding on mult or add rule
@@ -464,7 +465,7 @@ class AAxEVDD(Diagram):
             return node, [0, offset[0][1]]
 
     @staticmethod
-    def to_mat(node, loffset, goffset=null_edge_value, reorder=False):
+    def to_mat(node, loffset, goffset=None, reorder=False):
         """
         The diagram-type specific function to convert nodes to matrices
         """
@@ -494,8 +495,9 @@ class AAxEVDD(Diagram):
         """
         This method recomputes the offsets of different nodes in the DD after their encoded variable has changed.
         """
+        import numpy
         # TODO: When the overall AADD branching criterion is designed, this has to be considered as well.
-        return [0, 1], [[offsets[i][0], offsets[i][1]] for i in range(base)]
+        return numpy.array([0, 1]), [numpy.array([offsets[i][0], offsets[i][1]]) for i in range(base)]
 
     @staticmethod
     def scalar_mult(diagram, scalar):

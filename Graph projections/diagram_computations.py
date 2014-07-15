@@ -386,23 +386,23 @@ def dot_product(diagram_vec_1, diagram_vec_2, dec_digits=-1, outer_offset=None):
     return sum_over_all(multiply_elementwise(diagram_vec_1, diagram_vec_2, dec_digits, outer_offset))
 
 
-def multiply_matrix_by_column_vector(diagram1, diagram2, precision=-1, outer_offset_1=None, outer_offset_2=None, final_offset=False):
+def multiply_matrix_by_column_vector(diagram_mat, diagram_vec, precision=-1, outer_offset_mat=None, outer_offset_vec=None, final_offset=False):
     """
-    This function multiplies two diagram elementwise
-    (i.e. like numpy.multiply(d1, d2) or d1.*d2 in Matlab)
+    This function multiplies a diagram representing a matrix, and a diagram representing a column vector
+    (i.e. like numpy.dot(d1, d2) or d1*d2 in Matlab)
     This method raises an out of bounds diagram exception if the two diagrams' sizes do not match.
-    :param diagram1: The first diagram
-    :param diagram2: The second diagram
+    :param diagram_mat: The first diagram
+    :param diagram_vec: The second diagram
     :param operation: The operation to be performed as a function of the numpy package, i.e. np.multiply
     :return: a diagram (a new object) of the elementwise multiplication
     """
     # some argument checking
-    node_mat_offset_1 = diagram1.dtype.null_edge_value if outer_offset_1 is None else outer_offset_1
-    node_mat_offset_2 = diagram1.dtype.null_edge_value if outer_offset_2 is None else outer_offset_1
+    node_mat_offset = diagram_mat.dtype.null_edge_value if outer_offset_mat is None else outer_offset_mat
+    node_vec_offset = diagram_vec.dtype.null_edge_value if outer_offset_vec is None else outer_offset_vec
 
     # The hashmap of the results, to minimize computations
     hashmap_of_results = {}
-    dd = diagram1.dtype()
+    dd = diagram_mat.dtype()
 
     # the recursive function
     def multiply_matrix_by_column_vector_rec(node_mat, node_vec, offset_mat, offset_vec):
@@ -411,13 +411,13 @@ def multiply_matrix_by_column_vector(diagram1, diagram2, precision=-1, outer_off
         if hash_of_current_operation in hashmap_of_results:
             return hashmap_of_results[hash_of_current_operation]
 
-        node = diagram1.__class__('', diagram_type=diagram1.dtype)
+        node = diagram_mat.__class__('', diagram_type=diagram_mat.dtype)
 
         # Are we selecting rows, or performing the dot product?
         if node_mat.d == node_vec.d + 1:
             node.d = depth = 1
             leaf_values = []
-            if diagram1.offsets == {}:
+            if diagram_mat.offsets == {}:
                 for i in range(dd.base):
                     leaf_values.append(dot_product(node_mat.child_nodes[i], node_vec, precision, dd.to_mat(
                         node_mat.child_nodes[i], None, None)))
@@ -432,15 +432,15 @@ def multiply_matrix_by_column_vector(diagram1, diagram2, precision=-1, outer_off
             depth = 0
             # looping over the different elements in the base
             # no-offset diagram type?
-            if diagram1.offsets == {}:
-                for i in range(diagram1.dtype.base):
+            if diagram_mat.offsets == {}:
+                for i in range(diagram_mat.dtype.base):
                     node.child_nodes[i], offset[i], depth = \
                         multiply_matrix_by_column_vector_rec(node_mat.child_nodes[i], node_vec, None, None)
             else:
-                for i in range(diagram1.dtype.base):
+                for i in range(diagram_mat.dtype.base):
                     node.child_nodes[i], offset[i], depth = \
                         multiply_matrix_by_column_vector_rec(node_mat.child_nodes[i], node_vec,
-                                   node_mat.dtype.to_mat(node_mat, node_mat.offsets[i], offset_mat), None)
+                                   node_mat.dtype.to_mat(node_mat, node_mat.offsets[i], offset_mat), offset_vec)
             depth += 1
             node, new_offset = dd.create_tuple(node, offset)
             node.d = depth
@@ -461,9 +461,9 @@ def multiply_matrix_by_column_vector(diagram1, diagram2, precision=-1, outer_off
 
     # matrix multiplication requires the final offset
     if final_offset:
-        return multiply_matrix_by_column_vector_rec(diagram1, diagram2, node_mat_offset_1, node_mat_offset_2)
+        return multiply_matrix_by_column_vector_rec(diagram_mat, diagram_vec, node_mat_offset, node_vec_offset)
     else:
-        diagram, f_offset, _ = multiply_matrix_by_column_vector_rec(diagram1, diagram2, node_mat_offset_1, node_mat_offset_2)
+        diagram, f_offset, _ = multiply_matrix_by_column_vector_rec(diagram_mat, diagram_vec, node_mat_offset, node_vec_offset)
         dd.include_final_offset(diagram, f_offset)
         diagram.reduce()
         return diagram
@@ -498,34 +498,34 @@ def multiply(diagram1, diagram2, height_second_argument, precision=-1, to_transp
         if hash_of_current_operation in hashmap_of_results:
             return hashmap_of_results[hash_of_current_operation]
 
-        node = diagram1.__class__('', diagram_type=diagram1.dtype)
-        offset = {}
-        depth = 0
         # Are we selecting rows, or performing the dot product?
-        if node_mat_2.d == outer_height + 1:
+        if node_mat_1.d < outer_height:
+            raise OutOfBounds
+        elif node_mat_1.d == outer_height:
             if diagram1.offsets == {}:
-                for i in range(dd.base):
-                    node.child_nodes[i], offset[i], depth = multiply_matrix_by_column_vector(
-                        node_mat_1, node_mat_2, precision=precision, final_offset=True)
+                node, new_offset, depth = multiply_matrix_by_column_vector(
+                        node_mat_2, node_mat_1, precision=precision, final_offset=True)
             else:
-                for i in range(dd.base):
-                    node.child_nodes[i], offset[i], depth = multiply_matrix_by_column_vector(
-                        node_mat_1, node_mat_2, precision=precision, outer_offset_2=offset_mat_2, final_offset=True)
+                node, new_offset, depth = multiply_matrix_by_column_vector(
+                        node_mat_2, node_mat_1, precision=precision, outer_offset_vec=offset_mat_1, final_offset=True)
         # selecting rows
         else:
+            node = diagram1.__class__('', diagram_type=diagram1.dtype)
+            offset = {}
+            depth = 0
             # looping over the different elements in the base
             # no-offset diagram type?
             if diagram1.offsets == {}:
                 for i in range(diagram1.dtype.base):
                     node.child_nodes[i], offset[i], depth = \
-                        multiply_rec(node_mat_1, node_mat_2.child_nodes[i], None, None)
+                        multiply_rec(node_mat_1.child_nodes[i], node_mat_2, None, None)
             else:
                 for i in range(diagram1.dtype.base):
                     node.child_nodes[i], offset[i], depth = \
-                        multiply_rec(node_mat_1, node_mat_2.child_nodes[i],
-                                   node_mat_1.dtype.to_mat(node_mat_2, node_mat_2.offsets[i], offset_mat_2), None)
-        depth += 1
-        node, new_offset = dd.create_tuple(node, offset)
+                        multiply_rec(node_mat_1.child_nodes[i], node_mat_2,
+                                   node_mat_1.dtype.to_mat(node_mat_1, node_mat_1.offsets[i], offset_mat_1), None)
+            node, new_offset = dd.create_tuple(node, offset)
+            depth += 1
         node.d = depth
         # because, in all likelihood, the following has to be calculated anyways, calculating it now will
         #  eliminate the need for another recursion through the diagram.
@@ -542,7 +542,7 @@ def multiply(diagram1, diagram2, height_second_argument, precision=-1, to_transp
         #         node = hashtable[node.__hash__()]
         return node, new_offset, depth
 
-    diagram, f_offset, _ = multiply_rec(diagram1, diagram3, diagram1.dtype.null_edge_value, diagram2.dtype.null_edge_value)
+    diagram, f_offset, _ = multiply_rec(diagram1, diagram3, diagram1.dtype.null_edge_value, diagram3.dtype.null_edge_value)
     dd.include_final_offset(diagram, f_offset)
     diagram.reduce()
     return diagram
