@@ -4,8 +4,9 @@
 """
 
 import numpy as np
-from node import BNode
 import config
+import pylab as pl
+
 
 
 def test_multiplication(number, max_size, sparsity):
@@ -853,13 +854,82 @@ def test_multiplications():
     print 'AAEVxDD'
     diagram7 = aadd.create(mat1, 0, True)
     diagram8 = aadd.create(mat2, 0, True)
-    aadd_mat = multiply(diagram7, diagram8, 3).to_matrix(7, True)
+    aadd_mat = multiply(diagram7, diagram8, 3, precision=4).to_matrix(7, True)
     print aadd_mat
     print 'Error:   ' + str(np.sum(aadd_mat-ref_mat))
 
 
+def test_approx():
+    from diagram_computations import approx, exchange_variable_order_with_children
+    mat1 = np.array([[ 10,  11,  12,  13,  14,  15,  16,  17],
+                     [ 30,  31,  32,  33,  34,  35,  36,  37],
+                     [ 50,  51,  52,  53,  54,  55,  56,  57],
+                     [ 70,  71,  72,  73,  74,  75,  76,  77],
+                     [ 90,  91,  92,  93,  94,  95,  96,  97],
+                     [110, 111, 112, 113, 114, 115, 116, 117],
+                     [130, 131, 132, 133, 134, 135, 136, 137],
+                     [150, 151, 152, 153, 154, 155, 156, 157]], dtype='float64')
+
+    # # mat1 = np.random.random((8, 8))/10
+    #
+    # # mat1 = np.reshape(mat1, (1, np.prod(mat1.shape)))+ ((np.arange(0, 64, 1))/34) + (np.sin(np.arange(0, 64, 1).astype('float64')/32*np.pi))
+    # mat1 = (np.sin(np.arange(0, 64, 1).astype('float64')/16*np.pi))
+    from diagram_binary import MT2DD, AEV2DD, MEV2DD, AAEV2DD
+    from diagram_ternary import MT3DD, AEV3DD, MEV3DD, AAEV3DD
+    aevdd = AEV2DD()
+    diagram1 = aevdd.create(mat1, 0)
+    # The following will create the variable sequence 013425, which gives every 2nd row and every 2nd column
+    #  for 4 (four!) variables.
+    # exchange_variable_order_with_children(diagram1, 2)
+    # exchange_variable_order_with_children(diagram1, 3)
+    mat2 = np.array([np.arange(8, 64, 16), approx(diagram1, 2, 1)[0]])
+    print mat2
+    print np.reshape(mat2[1], (2,2))
+    mat3 = np.array([np.arange(4, 64, 8), approx(diagram1, 3, 1)[0]])
+    print mat3
+    print np.reshape(mat3[1], (4,2))
+    mat4 = np.array([np.arange(2, 64, 4), approx(diagram1, 4, 1)[0]])
+    print mat4
+    print np.reshape(mat4[1], (4,4))
+    mat5 = np.array([np.arange(1, 64, 2), approx(diagram1, 5, 1)[0]])
+    print mat5
+    print np.reshape(mat5[1], (8,4))
+    mat6 = np.array([np.arange(0, 64, 1), approx(diagram1, 6, 1)[0]])
+    print mat6
+    print np.reshape(mat6[1], (8,8))
+    pl.figure()
+    pl.plot(mat2[0], mat2[1])
+    pl.plot(mat3[0], mat3[1])
+    pl.plot(mat4[0], mat4[1])
+    pl.plot(mat5[0], mat5[1])
+    pl.plot(mat6[0], mat6[1])
+    pl.title('2-5 variable approx')
+    pl.show()
+    # aevdd = MEV2DD()
+    # diagram1 = aevdd.create(mat1, 0)
+    # mat2 = np.array([np.arange(8, 64, 16), approx(diagram1, 2, 1)[0]])
+    # # print mat2
+    # mat3 = np.array([np.arange(4, 64, 8), approx(diagram1, 3, 1)[0]])
+    # # print mat3
+    # mat4 = np.array([np.arange(2, 64, 4), approx(diagram1, 4, 1)[0]])
+    # # print mat4
+    # mat5 = np.array([np.arange(1, 64, 2), approx(diagram1, 5, 1)[0]])
+    # # print mat5
+    # mat6 = np.array([np.arange(0, 64, 1), approx(diagram1, 6, 1)[0]])
+    # # print mat6
+    # pl.figure()
+    # pl.plot(mat2[0], mat2[1])
+    # pl.plot(mat3[0], mat3[1])
+    # pl.plot(mat4[0], mat4[1])
+    # pl.plot(mat5[0], mat5[1])
+    # pl.plot(mat6[0], mat6[1])
+    # pl.title('2-5 variable approx')
+    # pl.show()
+
+
 if __name__ == "__main__":
-    test_multiplications()
+    test_approx()
+    # test_multiplications()
     # test_elementwise_operations()
     # test_mevdds()
     # divide_conquer_kron()

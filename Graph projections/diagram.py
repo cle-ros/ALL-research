@@ -131,6 +131,7 @@ class Diagram:
         no_vars = get_req_vars(matrix, self.base)
         # expand the matrix to be of size 2^nx2^m
         matrix = expand_matrix_exponential(matrix, no_vars[1:], null_value, self.base)
+        print matrix.shape
         # get the not-suppressed values
         leaves = matrix.flatten()
         # should the values be rounded to increase compression?
@@ -174,8 +175,72 @@ class Diagram:
 
         # making sure that the entire diagram is not "off" by the final offset
         self.include_final_offset(diagram, f_offset)
-        # if to_reduce:
-        #     diagram.reduce()
+        if to_reduce:
+            diagram.reduce()
+
+        return diagram
+
+    def create_2d(self, matrix, null_value, to_reduce=True, dec_digits=-1):
+        """
+        this function creates a diagram of the specified type of the given matrix
+        :param matrix:      The data to be represented
+        :param null_value:  The null value (for *-suppressed DDs)
+        :param to_reduce:   Whether the tree shall be represented as a diagram
+        :param dec_digits:  The number of decimal digits to round to
+        """
+        from matrix_and_variable_operations import expand_matrix_exponential, get_req_vars
+        # initializing the reduction
+        hashtable = {}
+        # get the required number of vars
+        no_vars = get_req_vars(matrix, self.base)
+        # expand the matrix to be of size 2^nx2^m
+        matrix = expand_matrix_exponential(matrix, no_vars[1:], null_value, self.base)
+        print matrix.shape
+        # get the not-suppressed values
+        leaves = matrix.flatten()
+        # should the values be rounded to increase compression?
+        if dec_digits != -1:
+            import numpy
+            leaves = numpy.round(leaves, dec_digits)
+
+        def create_diagram_rec_2d(values):
+            """
+            The recursive function
+            """
+            node = self.node_type('', diagram_type=self.__class__)
+            entry_length = len(values)/self.base
+            if entry_length == 1:
+                node, new_offset = self.create_leaves(node, values)
+                node.d = depth = 1
+            else:
+                # somewhere around here the create_tuple has to be used.
+                offset = {}
+                depth = 0
+                value_blocks = self.transform_basis(values)
+                # looping over the different elements in the base
+                for i in range(self.base):
+                    node.child_nodes[i], offset[i], depth = create_diagram_rec_2d(value_blocks[i])
+                depth += 1
+                node, new_offset = self.create_tuple(node, offset)
+                node.d = depth
+            # because, in all likelihood, the following has to be calculated anyways, calculating it now will
+            #  eliminate the need for another recursion through the diagram.
+            node.nodes
+            node.leaves
+            node.__hash__()
+            if to_reduce:
+                if not node.__hash__() in hashtable:
+                    hashtable[node.__hash__()] = node
+                else:
+                    node = hashtable[node.__hash__()]
+            return node, new_offset, depth
+
+        diagram, f_offset, _ = create_diagram_rec_2d(leaves)
+
+        # making sure that the entire diagram is not "off" by the final offset
+        self.include_final_offset(diagram, f_offset)
+        if to_reduce:
+            diagram.reduce()
 
         return diagram
 
@@ -259,20 +324,24 @@ class AEVxDD(Diagram):
         """
         from node import Leaf
         parent_node.child_nodes[0] = Leaf(0.0, 0, diagram_type=AEVxDD)
-        parent_node.offsets[0] = 0.0
-        for i in range(1, self.base, 1):
+        average = leaf_values.mean()
+        for i in range(self.base):
             parent_node.child_nodes[i] = parent_node.child_nodes[0]
-            parent_node.offsets[i] = leaf_values[i] - leaf_values[0]
-        return parent_node, leaf_values[0]
+            parent_node.offsets[i] = leaf_values[i] - average
+        return parent_node, average
 
     def create_tuple(self, node, offset):
         """
         Computes the offset for a node, given the offset of its children
         """
+        average = 0.0
+        for os in offset:
+            average += offset[os]
+        average /= len(offset)
         node.offsets[0] = 0.0
-        for i in range(1, self.base, 1):
-            node.offsets[i] = offset[i] - offset[0]
-        return node, offset[0]
+        for i in range(self.base):
+            node.offsets[i] = offset[i] - average
+        return node, average
 
     @staticmethod
     def include_final_offset(node, offset):
@@ -432,7 +501,14 @@ class AAxEVDD(Diagram):
 
         # creating the offsets
         # deciding on mult or add rule
-        # if leaf_values[0] == 0:
+        # additive_coefficient = np.mean(leaf_values)
+        # new_offsets = np.array([leaf_values[i]-additive_coefficient for i in range(self.base)])
+        # max_difference = np.max(np.abs(new_offsets))
+        # mult_coefficient = max_difference if max_difference != 0.0 else 1.0
+        # for i in range(self.base):
+        #     node.child_nodes[i] = node.child_nodes[0]
+        #     node.offsets[i] = np.array([((new_offsets[i])/mult_coefficient), mult_coefficient], dtype='float64')
+        # return node, [additive_coefficient, mult_coefficient]
         if leaf_values[0] == 0 or (leaf_values[1]-leaf_values[0] < leaf_values[1]/leaf_values[0]):
             node.offsets[0] = np.array([0, 1], dtype='float64')
             for i in range(1, self.base, 1):
@@ -453,6 +529,13 @@ class AAxEVDD(Diagram):
         import numpy as np
         # creating the new offsets
         # if offset[0][0] == 0:
+        # additive_coefficient = np.mean(np.array(offset.values())[0, :])
+        # mult_coefficient = np.median(np.array(offset.values())[1, :])
+        # mult_coefficient = mult_coefficient if mult_coefficient != 0.0 else 1.0
+        # node.offsets[0] = np.array([0, offset[0][1]], dtype='float64')
+        # for i in range(self.base):
+        #     node.offsets[i] = np.array([((offset[i][0]-additive_coefficient)/mult_coefficient), mult_coefficient], dtype='float64')
+        # return node, [additive_coefficient, mult_coefficient]
         if offset[0][1] == 0 or offset[1][0]-offset[0][0] < offset[1][1]/offset[0][1]:
             node.offsets[0] = np.array([0, offset[0][1]], dtype='float64')
             for i in range(1, self.base, 1):

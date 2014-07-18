@@ -6,7 +6,7 @@ Created on Fri Feb 14 13:11:22 2014
 """
 import copy
 from node import Node
-from diagram_exceptions import OutOfBounds
+from diagram_exceptions import UnmatchingDiagramsException
 import numpy as np
 
 
@@ -22,76 +22,6 @@ def scalar_multiply_diagram(diagram, scalar):
 
     diagram.dtype.scalar_mult(diagram, scalar)
 
-    return result
-
-
-def multiply_diagram(diag1, diag2, height, to_transpose=True):
-    """
-    This function multiplies two diagrams by the logic of the matrix multiplication
-    """
-    assert isinstance(diag1, Node)
-    assert isinstance(diag2, Node)
-    if to_transpose:
-        diag3 = transpose(diag2, height)
-    else:
-        diag3 = diag2
-
-    def multiply_bdiagram_rec(node1, node2, w, loffset=0, roffset=0):
-        """
-        The recursive function for multiplying two MTBDDs
-        :param node1: the first diagram
-        :param node2: the second diagram
-        :param w: the width of the matrix, in 2^n
-        :return: their product
-        """
-        if node1.d == w:
-            # selected rows of node1
-            node = node1.create_node()
-            # multiplying rows by the other diagram
-            succ = False
-            if node1.n:
-                n_edge = multiply_by_column_vector(node2, node1.n, loffset)
-                if n_edge:
-                    depth = n_edge.d + 1
-                    node.n = n_edge
-                    succ = True
-            if node1.p:
-                p_edge = multiply_by_column_vector(node2, node1.p, loffset)
-                if p_edge:
-                    depth = p_edge.d + 1
-                    node.p = p_edge
-                    succ = True
-            if succ:
-                node.d = depth
-                return node
-            else:
-                return False
-        elif node1.d > w:
-            # if row-blocks are selected, go further down
-            node = type(node1)('x')
-            succ = False
-            if node1.p:
-                p_edge = multiply_bdiagram_rec(node1.p, node2, w, loffset=node1.dtype.collapse_node(node1.po, loffset))
-                if p_edge:
-                    node.p = p_edge
-                    depth = p_edge.d + 1
-                    succ = True
-            if node1.n:
-                n_edge = multiply_bdiagram_rec(node1.n, node2, w, loffset=node1.dtype.collapse_node(node1.no, loffset))
-                if n_edge:
-                    node.n = n_edge
-                    depth = n_edge.d + 1
-                    succ = True
-            if succ:
-                node.d = depth
-                return node
-            else:
-                return False
-        else:
-            return False
-    result = multiply_bdiagram_rec(diag1, diag3, np.ceil(np.log2(height)))
-    if not result:
-        result = type(diag1)('x')
     return result
 
 
@@ -231,7 +161,7 @@ def hash_for_multiple_nodes(node1, node2, offset1, offset2):
     return hash(str(node1.__hash__()) + str(node2.__hash__()) + str(offset1) + str(offset2))
 
 
-def multiply_elementwise(diagram1, diagram2, dec_digits=-1, outer_offset=None):
+def multiply_elementwise(diagram1, diagram2, dec_digits=-1, offset_1=None, offset_2=None):
     """
     This function multiplies two diagram elementwise
     (i.e. like numpy.multiply(d1, d2) or d1.*d2 in Matlab)
@@ -241,10 +171,10 @@ def multiply_elementwise(diagram1, diagram2, dec_digits=-1, outer_offset=None):
     :return: a diagram (a new object) of the elementwise multiplication
     """
     import numpy
-    return operation_elementwise(diagram1, diagram2, numpy.multiply, dec_digits, outer_offset)
+    return operation_elementwise(diagram1, diagram2, numpy.multiply, dec_digits, offset_1, offset_2)
 
 
-def addition_elementwise(diagram1, diagram2, dec_digits=-1, outer_offset=None):
+def addition_elementwise(diagram1, diagram2, dec_digits=-1, offset_1=None, offset_2=None):
     """
     This function provides normal matrix addition.
     :param diagram1:
@@ -252,10 +182,10 @@ def addition_elementwise(diagram1, diagram2, dec_digits=-1, outer_offset=None):
     :return:
     """
     import numpy
-    return operation_elementwise(diagram1, diagram2, numpy.add, dec_digits, outer_offset)
+    return operation_elementwise(diagram1, diagram2, numpy.add, dec_digits, offset_1, offset_2)
 
 
-def operation_elementwise(diagram1, diagram2, operation, precision, outer_offset):
+def operation_elementwise(diagram1, diagram2, operation, precision, offset_1, offset_2):
     """
     This function multiplies two diagram elementwise
     (i.e. like numpy.multiply(d1, d2) or d1.*d2 in Matlab)
@@ -269,7 +199,6 @@ def operation_elementwise(diagram1, diagram2, operation, precision, outer_offset
     hashmap_of_results = {}
     dd = diagram1.dtype()
     if precision != -1:
-        print precision
         def rounding(array):
             return np.round(array, precision)
     else:
@@ -287,7 +216,7 @@ def operation_elementwise(diagram1, diagram2, operation, precision, outer_offset
 
         # Some argument checking
         if node1.is_leaf() != node2.is_leaf():
-            raise OutOfBounds
+            raise UnmatchingDiagramsException
         elif node1.is_leaf() and node2.is_leaf():
             return rounding(operation(node1.value, node2.value))
         elif node1.child_nodes.values()[0].is_leaf():
@@ -310,11 +239,11 @@ def operation_elementwise(diagram1, diagram2, operation, precision, outer_offset
             depth += 1
             node, new_offset = dd.create_tuple(node, offset)
             node.d = depth
-            # because, in all likelihood, the following has to be calculated anyways, calculating it now will
-            #  eliminate the need for another recursion through the diagram.
+        # because, in all likelihood, the following has to be calculated anyways, calculating it now will
+        #  eliminate the need for another recursion through the diagram.
         node.nodes
         node.leaves
-        node.__hash__()
+        node.__hash__(reinit=True)
         hashmap_of_results[hash_of_current_operation] = [node, new_offset, depth]
         # TODO: the following should work ...
         # node.__hash__()
@@ -326,10 +255,10 @@ def operation_elementwise(diagram1, diagram2, operation, precision, outer_offset
         return node, new_offset, depth
 
     # some argument checking:
-    offset_d_1 = diagram1.dtype.null_edge_value if outer_offset is None else outer_offset
-    diagram, f_offset, _ = operation_elementwise_rec(diagram1, diagram2, offset_d_1, diagram2.dtype.null_edge_value)
+    offset_d_1 = diagram1.dtype.null_edge_value if offset_1 is None else offset_1
+    offset_d_2 = diagram2.dtype.null_edge_value if offset_2 is None else offset_2
+    diagram, f_offset, _ = operation_elementwise_rec(diagram1, diagram2, offset_d_1, offset_d_2)
     dd.include_final_offset(diagram, f_offset)
-    diagram.reduce()
     return diagram
 
 
@@ -374,7 +303,7 @@ def sum_over_all(diagram1):
     return sum_rec(diagram1, diagram1.dtype.null_edge_value)
 
 
-def dot_product(diagram_vec_1, diagram_vec_2, dec_digits=-1, outer_offset=None):
+def dot_product(diagram_vec_1, diagram_vec_2, dec_digits=-1, offset_1=None, offset_2=None):
     """
     This function computes the dot product (inner product) of two diagrams, each representing a vector.
     :param diagram_vec_1:
@@ -382,8 +311,8 @@ def dot_product(diagram_vec_1, diagram_vec_2, dec_digits=-1, outer_offset=None):
     :return:
     """
     if diagram_vec_1.d != diagram_vec_2.d:
-        raise OutOfBounds
-    return sum_over_all(multiply_elementwise(diagram_vec_1, diagram_vec_2, dec_digits, outer_offset))
+        raise UnmatchingDiagramsException
+    return sum_over_all(multiply_elementwise(diagram_vec_1, diagram_vec_2, dec_digits, offset_1, offset_2))
 
 
 def multiply_matrix_by_column_vector(diagram_mat, diagram_vec, precision=-1, outer_offset_mat=None, outer_offset_vec=None, final_offset=False):
@@ -391,10 +320,13 @@ def multiply_matrix_by_column_vector(diagram_mat, diagram_vec, precision=-1, out
     This function multiplies a diagram representing a matrix, and a diagram representing a column vector
     (i.e. like numpy.dot(d1, d2) or d1*d2 in Matlab)
     This method raises an out of bounds diagram exception if the two diagrams' sizes do not match.
-    :param diagram_mat: The first diagram
-    :param diagram_vec: The second diagram
-    :param operation: The operation to be performed as a function of the numpy package, i.e. np.multiply
-    :return: a diagram (a new object) of the elementwise multiplication
+    :param diagram_mat: The matrix
+    :param diagram_vec: The vector
+    :param precision: The rounding precision (in decimal digits)
+    :param outer_offset_mat: The beginning offset of the matrix diagram
+    :param outer_offset_vec: The beginning offset of the vector diagram
+    :param final_offset: a boolean - should the final offset be included, or returned?
+    :return: a diagram (a new object) of the elementwise multiplication; the final offset (if specified)
     """
     # some argument checking
     node_mat_offset = diagram_mat.dtype.null_edge_value if outer_offset_mat is None else outer_offset_mat
@@ -424,7 +356,7 @@ def multiply_matrix_by_column_vector(diagram_mat, diagram_vec, precision=-1, out
             else:
                 for i in range(dd.base):
                     leaf_values.append(dot_product(node_mat.child_nodes[i], node_vec, precision, dd.to_mat(
-                        node_mat.child_nodes[i], node_mat.offsets[i], offset_mat)))
+                        node_mat.child_nodes[i], node_mat.offsets[i], offset_mat), offset_vec))
             node, new_offset = dd.create_leaves(node, np.array(leaf_values))
         # selecting rows
         else:
@@ -476,6 +408,7 @@ def multiply(diagram1, diagram2, height_second_argument, precision=-1, to_transp
     This method raises an out of bounds diagram exception if the two diagrams' sizes do not match.
     :param diagram1: The first diagram
     :param diagram2: The second diagram
+    :param height_second_argument: The height of the matrix (required for the correct row/column selection logic)
     :param precision: The rounding precision
     :param to_transpose:
     :return: a diagram (a new object) of the elementwise multiplication
@@ -500,7 +433,7 @@ def multiply(diagram1, diagram2, height_second_argument, precision=-1, to_transp
 
         # Are we selecting rows, or performing the dot product?
         if node_mat_1.d < outer_height:
-            raise OutOfBounds
+            raise UnmatchingDiagramsException
         elif node_mat_1.d == outer_height:
             if diagram1.offsets == {}:
                 node, new_offset, depth = multiply_matrix_by_column_vector(
@@ -546,3 +479,56 @@ def multiply(diagram1, diagram2, height_second_argument, precision=-1, to_transp
     dd.include_final_offset(diagram, f_offset)
     diagram.reduce()
     return diagram
+
+
+def approx(diagram, level, rows, cropping = True):
+    """
+    This function computes the approximation of the diagram at the nth level.
+    """
+    level_from_bottom = diagram.d - level
+
+    def approx_rec(node, offset, current_level):
+        # making sure the node exists
+        if not node:
+            return None, 0
+        # checking whether the node is a leaf
+        elif node.is_leaf():
+            return node.dtype.to_mat(node, offset)
+        elif node.d == level_from_bottom:
+            return node.dtype.to_mat(node.leaves.__iter__().next(), offset)
+        else:
+            # the recursive call
+            # mat_shape = node.dtype.base**node.d
+            # base_mat = np.ones(mat_shape)*diagram.null_value
+            base_mat = np.array([])
+            # checking for the kind of diagram. MTxxx?
+            if diagram.offsets == {}:
+                for edge_name in sorted(node.child_nodes.keys()):
+                    tmp_result = approx_rec(node.child_nodes[edge_name], node.dtype.to_mat(node, 0, 0),
+                                               diagram.null_value)
+                    base_mat = np.hstack((base_mat, tmp_result))
+            # or edge-value dd?
+            else:
+                for edge_name in sorted(node.child_nodes.keys()):
+                    tmp_result = approx_rec(node.child_nodes[edge_name],
+                                               node.dtype.to_mat(node, node.offsets[edge_name], offset), diagram.null_value)
+                    base_mat = np.hstack((base_mat, tmp_result))
+            return base_mat
+
+    result = approx_rec(diagram, diagram.dtype.null_edge_value, diagram.null_value)
+    row_vars = np.log10(rows)/np.log10(diagram.dtype.base)
+    ratio_of_approx = row_vars/level
+    rows = diagram.dtype.base**np.ceil(ratio_of_approx)
+    result = np.reshape(result, (rows, len(result)/rows))
+    # if desired, crop the result of all zero columns/rows in the lower right
+    if cropping and not rows == 1:
+        uncropped = True
+        while uncropped:
+            uncropped = False
+            if (result[:, -1] == 0).all():
+                result = result[:, :-1]
+                uncropped = True
+            if (result[-1, :] == 0).all():
+                result = result[:-1, :]
+                uncropped = True
+    return result
