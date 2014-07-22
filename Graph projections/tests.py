@@ -766,101 +766,108 @@ def test_elementwise_operations():
 
 def test_multiplications():
     from diagram_computations import multiply_elementwise, addition_elementwise, sum_over_all, dot_product, multiply_matrix_by_column_vector, multiply
-    # from diagram_ternary import MT3DD, AEV3DD, MEV3DD, AAEV3DD
-    from diagram_binary import MT2DD, AEV2DD, MEV2DD, AAEV2DD
-    mtdd = MT2DD()
-    # mtdd = MT3DD()
-    aevdd = AEV2DD()
-    # aevdd = AEV3DD()
-    mevdd = MEV2DD()
-    # mevdd = MEV3DD()
-    aadd = AAEV2DD()
-    # aadd = AAEV3DD()
+    from diagram_ternary import MT3DD, AEV3DD, MEV3DD, AAEV3DD
+    # from diagram_binary import MT2DD, AEV2DD, MEV2DD, AAEV2DD
+    # mtdd = MT2DD()
+    mtdd = MT3DD()
+    # aevdd = AEV2DD()
+    aevdd = AEV3DD()
+    # mevdd = MEV2DD()
+    mevdd = MEV3DD()
+    # aadd = AAEV2DD()
+    aadd = AAEV3DD()
     # mat1 = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12], [13, 14, 15], [16, 17, 18], [19, 20, 21]], dtype=float)
-    mat2 = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]], dtype=float)
-    vec1 = np.array([2, -3, 5])
-    mat1 = np.array([[1, 2, 3], [-4, -5, -6], [7, 8, 9], [-10, 11, -12], [13, 14, 15], [16, -17, 18], [19, 20, 21]], dtype=float)
+    # mat2 = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]], dtype=float)
+    vec1 = np.array([2, -3, 5, 4, 2, 6, -2, 3, 3])
+    # mat1 = np.array([[1, 2, 3], [-4, -5, -6], [7, 8, 9], [-10, 11, -12], [13, 14, 15], [16, -17, 18], [19, 20, 21]], dtype=float)
     # np.random.seed(0)
-    # mat1 = np.random.random((7, 3))
+    mat1 = np.random.random((81, 9))
+    mat2 = np.random.random((9, 27))
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
-    print 'The matrix:'
-    print mat1
-    print 'The vector:'
-    print vec1[None].T
+    # print 'The matrix:'
+    # print mat1
+    # print 'The vector:'
+    # print vec1[None].T
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
     print 'Reference (MULTIPLICATION):'
     print 'Complexity: ' + str(np.prod(mat1.shape))
     ref_mat = np.dot(mat1, vec1[None].T)
-    print ref_mat
+    # print ref_mat
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
     print 'MTxDD'
     diagram1 = mtdd.create(mat1, 0, True)
     diagram2 = mtdd.create(vec1, 0, True)
-    mtdd_mat = multiply_matrix_by_column_vector(diagram1, diagram2).to_matrix(7, True)
-    print mtdd_mat
+    mtdd_mat = multiply_matrix_by_column_vector(diagram1, diagram2).to_matrix(77, True)
+    # print mtdd_mat
     print 'Error:   ' + str(np.sum(mtdd_mat-ref_mat))
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
     print 'AEVxDD'
     diagram3 = aevdd.create(mat1, 0, True)
     diagram4 = aevdd.create(vec1, 0, True)
-    aevdd_mat = multiply_matrix_by_column_vector(diagram3, diagram4).to_matrix(7, True)
-    print aevdd_mat
+    aevdd_mat = multiply_matrix_by_column_vector(diagram3, diagram4).to_matrix(77, True)
+    # print aevdd_mat
     print 'Error:   ' + str(np.sum(aevdd_mat-ref_mat))
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
     print 'MEVxDD'
     diagram5 = mevdd.create(mat1, 0, True)
     diagram6 = mevdd.create(vec1, 0, True)
-    mevdd_mat = multiply_matrix_by_column_vector(diagram5, diagram6).to_matrix(7, True)
-    print mevdd_mat
+    mevdd_mat = multiply_matrix_by_column_vector(diagram5, diagram6).to_matrix(77, True)
+    # print mevdd_mat
     print 'Error:   ' + str(np.sum(mevdd_mat-ref_mat))
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
     print 'AAEVxDD'
     diagram7 = aadd.create(mat1, 0, True)
     diagram8 = aadd.create(vec1, 0, True)
-    aadd_mat = multiply_matrix_by_column_vector(diagram7, diagram8).to_matrix(7, True)
-    print aadd_mat
+    aadd_mat = multiply_matrix_by_column_vector(diagram7, diagram8).to_matrix(77, True)
+    # print aadd_mat
     print 'Error:   ' + str(np.sum(aadd_mat-ref_mat))
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
     print 'The matrix:'
-    print mat1
+    # print mat1
     print 'The 2nd matrix:'
-    print mat2
+    # print mat2
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
     print 'Reference (MULTIPLICATION):'
     ref_mat = np.dot(mat1, mat2)
-    print ref_mat
+    # print ref_mat
+    print 'shape of the reference result:  ' + str(ref_mat.shape)
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
     print 'MTxDD'
     diagram1 = mtdd.create(mat1, 0, True)
     diagram2 = mtdd.create(mat2, 0, True)
-    mtdd_mat = multiply(diagram1, diagram2, 3).to_matrix(7, True)
-    print mtdd_mat
-    print 'Error:   ' + str(np.sum(mtdd_mat-ref_mat))
+    mtdd_mat = multiply(diagram1, diagram2, 9).to_matrix(77, True)
+    # print mtdd_mat
+    print 'Error:         ' + str(np.sum(mtdd_mat-ref_mat))
+    print 'Error (max):   ' + str(np.max(mtdd_mat-ref_mat))
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
     print 'AEVxDD'
     diagram3 = aevdd.create(mat1, 0, True)
     diagram4 = aevdd.create(mat2, 0, True)
-    aevdd_mat = multiply(diagram3, diagram4, 3).to_matrix(7, True)
-    print aevdd_mat
-    print 'Error:   ' + str(np.sum(aevdd_mat-ref_mat))
+    aevdd_mat = multiply(diagram3, diagram4, 9).to_matrix(77, True)
+    aevdd_mat_approx = multiply(diagram3, diagram4, 9, approximation_precision=1, in_place='1').to_matrix(27, True)
+    # print aevdd_mat
+    print 'Error:         ' + str(np.sum(aevdd_mat-ref_mat))
+    print 'Error (max):   ' + str(np.max(aevdd_mat-ref_mat))
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
     print 'MEVxDD'
     diagram5 = mevdd.create(mat1, 0, True)
     diagram6 = mevdd.create(mat2, 0, True)
-    mevdd_mat = multiply(diagram5, diagram6, 3).to_matrix(7, True)
-    print mevdd_mat
-    print 'Error:   ' + str(np.sum(mevdd_mat-ref_mat))
+    mevdd_mat = multiply(diagram5, diagram6, 9).to_matrix(77, True)
+    # print mevdd_mat
+    print 'Error:         ' + str(np.sum(mevdd_mat-ref_mat))
+    print 'Error (max):   ' + str(np.max(mevdd_mat-ref_mat))
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
     print 'AAEVxDD'
     diagram7 = aadd.create(mat1, 0, True)
     diagram8 = aadd.create(mat2, 0, True)
-    aadd_mat = multiply(diagram7, diagram8, 3, precision=4).to_matrix(7, True)
-    print aadd_mat
-    print 'Error:   ' + str(np.sum(aadd_mat-ref_mat))
+    aadd_mat = multiply(diagram7, diagram8, 9).to_matrix(77, True)
+    # print aadd_mat
+    print 'Error:         ' + str(np.sum(aadd_mat-ref_mat))
+    print 'Error (max):   ' + str(np.max(aadd_mat-ref_mat))
 
 
 def test_approx():
-    from diagram_computations import approx, exchange_variable_order_with_children
+    from diagram_computations import exchange_variable_order_with_children
     mat1 = np.array([[ 10,  11,  12,  13,  14,  15,  16,  17],
                      [ 30,  31,  32,  33,  34,  35,  36,  37],
                      [ 50,  51,  52,  53,  54,  55,  56,  57],
@@ -897,14 +904,14 @@ def test_approx():
     mat6 = np.array([np.arange(0, 64, 1), approx(diagram1, 6, 1)[0]])
     print mat6
     print np.reshape(mat6[1], (8,8))
-    pl.figure()
-    pl.plot(mat2[0], mat2[1])
-    pl.plot(mat3[0], mat3[1])
-    pl.plot(mat4[0], mat4[1])
-    pl.plot(mat5[0], mat5[1])
-    pl.plot(mat6[0], mat6[1])
-    pl.title('2-5 variable approx')
-    pl.show()
+    # pl.figure()
+    # pl.plot(mat2[0], mat2[1])
+    # pl.plot(mat3[0], mat3[1])
+    # pl.plot(mat4[0], mat4[1])
+    # pl.plot(mat5[0], mat5[1])
+    # pl.plot(mat6[0], mat6[1])
+    # pl.title('2-5 variable approx')
+    # pl.show()
     # aevdd = MEV2DD()
     # diagram1 = aevdd.create(mat1, 0)
     # mat2 = np.array([np.arange(8, 64, 16), approx(diagram1, 2, 1)[0]])
@@ -927,8 +934,40 @@ def test_approx():
     # pl.show()
 
 
+def test_operation_approx():
+    def flux_qubit_potential(phi_m, phi_p):
+        return 2 + alpha - 2 * pl.cos(phi_p)*pl.cos(phi_m) - alpha * pl.cos(phi_ext - 2*phi_p)
+    alpha = 0.7
+    phi_ext = 2 * np.pi * 0.5
+    phi_m = pl.linspace(0, 2*np.pi, 100)
+    phi_p = pl.linspace(0, 2*np.pi, 100)
+    X,Y = pl.meshgrid(phi_p, phi_m)
+    Z = flux_qubit_potential(X, Y).T
+
+    # the diagram creatinos
+    from diagram_computations import multiply_elementwise, addition_elementwise, sum_over_all, dot_product, multiply_matrix_by_column_vector, multiply
+    from diagram_ternary import MT3DD, AEV3DD, MEV3DD, AAEV3DD
+    # from diagram_binary import MT2DD, AEV2DD, MEV2DD, AAEV2DD
+    aevdd = AEV3DD()
+    diagram3 = aevdd.create(Z, 0, True)
+    diagram4 = aevdd.create(Z, 0, True)
+
+    aevdd_mat = multiply(diagram3, diagram4, 9).to_matrix(77, True)
+    aevdd_mat_approx = multiply(diagram3, diagram4, 9, approximation_precision=1, in_place='1').to_matrix(27, True)
+
+    pl.plt.figure()
+    fig, ax = pl.plt.subplots()
+    p = ax.pcolor(X/(2*pl.pi), Y/(2*pl.pi), Z, cmap=pl.cm.RdBu, vmin=abs(Z).min(), vmax=abs(Z).max())
+    cb = fig.colorbar(p, ax=ax)
+    p = ax.pcolor(X/(2*pl.pi), Y/(2*pl.pi), Z, cmap=pl.cm.RdBu, vmin=abs(Z).min(), vmax=abs(Z).max())
+    cb = fig.colorbar(p, ax=ax)
+    # cnt = ax.contour(Z, cmap=pl.cm.RdBu, vmin=abs(Z).min(), vmax=abs(Z).max(), extent=[0, 1, 0, 1])
+    pl.show()
+
+
 if __name__ == "__main__":
-    test_approx()
+    test_operation_approx()
+    # test_approx()
     # test_multiplications()
     # test_elementwise_operations()
     # test_mevdds()

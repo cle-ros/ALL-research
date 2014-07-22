@@ -123,6 +123,12 @@ class Diagram:
         :param null_value:  The null value (for *-suppressed DDs)
         :param to_reduce:   Whether the tree shall be represented as a diagram
         :param dec_digits:  The number of decimal digits to round to
+        :return: the diagram
+        :type matrix: numpy.array
+        :type null_value: float
+        :type to_reduce: bool
+        :type dec_digits: int
+        :rtype: node.Node
         """
         from matrix_and_variable_operations import expand_matrix_exponential, get_req_vars
         # initializing the reduction
@@ -131,7 +137,6 @@ class Diagram:
         no_vars = get_req_vars(matrix, self.base)
         # expand the matrix to be of size 2^nx2^m
         matrix = expand_matrix_exponential(matrix, no_vars[1:], null_value, self.base)
-        print matrix.shape
         # get the not-suppressed values
         leaves = matrix.flatten()
         # should the values be rounded to increase compression?
@@ -142,6 +147,10 @@ class Diagram:
         def create_diagram_rec(values):
             """
             The recursive function
+            :type values: numpy.array
+            :rtype node: node.Node
+            :rtype new_offset: array
+            :rtype depth: int
             """
             node = self.node_type('', diagram_type=self.__class__)
             entry_length = len(values)/self.base
@@ -177,70 +186,7 @@ class Diagram:
         self.include_final_offset(diagram, f_offset)
         if to_reduce:
             diagram.reduce()
-
-        return diagram
-
-    def create_2d(self, matrix, null_value, to_reduce=True, dec_digits=-1):
-        """
-        this function creates a diagram of the specified type of the given matrix
-        :param matrix:      The data to be represented
-        :param null_value:  The null value (for *-suppressed DDs)
-        :param to_reduce:   Whether the tree shall be represented as a diagram
-        :param dec_digits:  The number of decimal digits to round to
-        """
-        from matrix_and_variable_operations import expand_matrix_exponential, get_req_vars
-        # initializing the reduction
-        hashtable = {}
-        # get the required number of vars
-        no_vars = get_req_vars(matrix, self.base)
-        # expand the matrix to be of size 2^nx2^m
-        matrix = expand_matrix_exponential(matrix, no_vars[1:], null_value, self.base)
-        print matrix.shape
-        # get the not-suppressed values
-        leaves = matrix.flatten()
-        # should the values be rounded to increase compression?
-        if dec_digits != -1:
-            import numpy
-            leaves = numpy.round(leaves, dec_digits)
-
-        def create_diagram_rec_2d(values):
-            """
-            The recursive function
-            """
-            node = self.node_type('', diagram_type=self.__class__)
-            entry_length = len(values)/self.base
-            if entry_length == 1:
-                node, new_offset = self.create_leaves(node, values)
-                node.d = depth = 1
-            else:
-                # somewhere around here the create_tuple has to be used.
-                offset = {}
-                depth = 0
-                value_blocks = self.transform_basis(values)
-                # looping over the different elements in the base
-                for i in range(self.base):
-                    node.child_nodes[i], offset[i], depth = create_diagram_rec_2d(value_blocks[i])
-                depth += 1
-                node, new_offset = self.create_tuple(node, offset)
-                node.d = depth
-            # because, in all likelihood, the following has to be calculated anyways, calculating it now will
-            #  eliminate the need for another recursion through the diagram.
-            node.nodes
-            node.leaves
-            node.__hash__()
-            if to_reduce:
-                if not node.__hash__() in hashtable:
-                    hashtable[node.__hash__()] = node
-                else:
-                    node = hashtable[node.__hash__()]
-            return node, new_offset, depth
-
-        diagram, f_offset, _ = create_diagram_rec_2d(leaves)
-
-        # making sure that the entire diagram is not "off" by the final offset
-        self.include_final_offset(diagram, f_offset)
-        if to_reduce:
-            diagram.reduce()
+        diagram.shape = matrix.shape
 
         return diagram
 
@@ -259,6 +205,12 @@ class MTxDD(Diagram):
     def create_leaves(self, parent_node, leaf_values):
         """
         This function creates the leaves from the values given, and the node one step up
+        :param parent_node: the parent node
+        :param leaf_values: the leaf values
+        :return: the parent node, with properly modified child properties
+        :type parent_node: node.Node
+        :type leaf_values: numpy.array
+        :rtype: node.Node
         """
         for i in range(self.base):
             # if zero_suppressed
@@ -321,6 +273,12 @@ class AEVxDD(Diagram):
     def create_leaves(self, parent_node, leaf_values):
         """
         This function creates the leaves from the values given, and the node one step up
+        :param parent_node: the parent node
+        :param leaf_values: the leaf values
+        :return: the parent node, with properly modified child properties
+        :type parent_node: node.Node
+        :type leaf_values: numpy.array
+        :rtype: node.Node
         """
         from node import Leaf
         parent_node.child_nodes[0] = Leaf(0.0, 0, diagram_type=AEVxDD)
@@ -336,7 +294,10 @@ class AEVxDD(Diagram):
         """
         average = 0.0
         for os in offset:
-            average += offset[os]
+            try:
+                average += offset[os]
+            except IndexError:
+                average += os
         average /= len(offset)
         node.offsets[0] = 0.0
         for i in range(self.base):
@@ -355,6 +316,7 @@ class AEVxDD(Diagram):
     def to_mat(node, loffset=0.0, goffset=None, reorder=False):
         """
         The diagram-type specific function to convert nodes to matrices
+        :raises: TypeError
         """
         goffset = 0 if goffset is None else goffset
         import numpy as np
@@ -400,6 +362,12 @@ class MEVxDD(Diagram):
     def create_leaves(self, parent_node, leaf_values):
         """
         This function creates the leaves from the values given, and the node one step up
+        :param parent_node: the parent node
+        :param leaf_values: the leaf values
+        :return: the parent node, with properly modified child properties
+        :type parent_node: node.Node
+        :type leaf_values: numpy.array
+        :rtype: node.Node
         """
         from node import Leaf
         import numpy
@@ -484,7 +452,7 @@ class AAxEVDD(Diagram):
         self.base = basis
         Diagram.__init__(self, Node, Leaf)
 
-    def create_leaves(self, node, leaf_values):
+    def create_leaves(self, parent_node, leaf_values):
         """
         This function creates terminal nodes given the parent node and the leaf values
 
@@ -493,11 +461,18 @@ class AAxEVDD(Diagram):
         2. the multiplicative offset
         2. for max-branch: add. offset + mult. offset = max(leaves)
         3. @ leaf-level: mult. offset = 0
+
+        :param parent_node: the parent node
+        :param leaf_values: the leaf values
+        :return: the parent node, with properly modified child properties
+        :type parent_node: node.Node
+        :type leaf_values: numpy.array
+        :rtype: node.Node
         """
         # TODO: find generalization!!
         import numpy as np
         # creating the leaf object
-        node.child_nodes[0] = self.leaf_type(0.0, 0, diagram_type=self.__class__)
+        parent_node.child_nodes[0] = self.leaf_type(0.0, 0, diagram_type=self.__class__)
 
         # creating the offsets
         # deciding on mult or add rule
@@ -510,17 +485,17 @@ class AAxEVDD(Diagram):
         #     node.offsets[i] = np.array([((new_offsets[i])/mult_coefficient), mult_coefficient], dtype='float64')
         # return node, [additive_coefficient, mult_coefficient]
         if leaf_values[0] == 0 or (leaf_values[1]-leaf_values[0] < leaf_values[1]/leaf_values[0]):
-            node.offsets[0] = np.array([0, 1], dtype='float64')
+            parent_node.offsets[0] = np.array([0, 1], dtype='float64')
             for i in range(1, self.base, 1):
-                node.child_nodes[i] = node.child_nodes[0]
-                node.offsets[i] = np.array([(leaf_values[i]-leaf_values[0]), 1], dtype='float64')
-            return node, [leaf_values[0], 1]
+                parent_node.child_nodes[i] = parent_node.child_nodes[0]
+                parent_node.offsets[i] = np.array([(leaf_values[i]-leaf_values[0]), 1], dtype='float64')
+            return parent_node, [leaf_values[0], 1]
         else:
-            node.offsets[0] = np.array([1, 1], dtype='float64')
+            parent_node.offsets[0] = np.array([1, 1], dtype='float64')
             for i in range(1, self.base, 1):
-                node.child_nodes[i] = node.child_nodes[0]
-                node.offsets[i] = np.array([leaf_values[i]/leaf_values[0], (leaf_values[i]/leaf_values[0])], dtype='float64')
-            return node, [0, leaf_values[0]]
+                parent_node.child_nodes[i] = parent_node.child_nodes[0]
+                parent_node.offsets[i] = np.array([leaf_values[i]/leaf_values[0], (leaf_values[i]/leaf_values[0])], dtype='float64')
+            return parent_node, [0, leaf_values[0]]
 
     def create_tuple(self, node, offset):
         """

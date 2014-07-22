@@ -17,12 +17,23 @@ class Node(object):
     properties = {}
     from diagram import MTxDD
 
-    def __init__(self, denominator='', diagram_type=MTxDD, depth=None, nv=0, mat=None, var='x'):
+    def __init__(self, denominator='', diagram_type=MTxDD, depth=None, nullvalue=0):
         """        
         all required information are the name of the node
-        :param mat:
+        :param denominator:
+        :param diagram_type:
+        :param depth:
+        :param nullvalue:
+        :return: This is a constructor. Guess.
+        :type denominator: str
+        :type diagram_type: diagram.Diagram
+        :type depth: int
+        :type nullvalue: float
+        :rtype : node.Node
         """
         self.name = denominator
+        self.in_order = True
+        self.exchange_order = []
         self.d = depth
         self.dtype = diagram_type
         self.child_nodes = {}
@@ -30,15 +41,9 @@ class Node(object):
         self.leaves_set = set()
         self.nodes_set = set()
         self.leaf_type = Leaf
-        self.null_value = nv
-        self.shape = (0, 0)
-        self.paths = set()
+        self.null_value = nullvalue
+        self.shape = (-1, -1)
         self.hash_value = None
-        if not var is None:
-            self.variable = var
-        if not mat is None:
-            from diagram_initialization import initialize_diagram
-            self.shape = initialize_diagram(self, mat, nv, var)
 
     def get_offset(self, index):
         """
@@ -71,7 +76,7 @@ class Node(object):
     def leaves(self):
         """
         This property returns the leaves_array and the end of this diagram
-        :rtype : array of leaf-nodes
+        :rtype: array
         :return:
         """
         # is the current node a leaf?
@@ -291,50 +296,50 @@ class Node(object):
         decomposition = decompose_paths_rec(self, np.array([]))
         return decomposition.reshape((decomposition.shape[0]/(self.d+1), self.d+1))
 
-    def to_matrix(self, rows=1, cropping=False, outer_offset=None):
+    def to_matrix(self, rows=1, cropping=True, outer_offset=None, approximation_precision=0):
         """
-        This method returns the matrix represented by the diagram
-        :param rows:
-        :param cropping:
+        This function computes the approximation of the diagram at the nth level and returns it as a matrix.
         """
         import numpy as np
 
-        # covering zero-matrices
-        if self.child_nodes == {}:
-            return np.array([self.null_value])
-
-        def to_mat_rec(node, offset, nv):
+        def to_matrix_rec(node, offset):
             # making sure the node exists
             if not node:
                 return None, 0
             # checking whether the node is a leaf
             elif node.is_leaf():
-                return node.dtype.to_mat(node, offset), 1
+                return node.dtype.to_mat(node, offset)
+            elif node.d == approximation_precision:
+                return node.dtype.to_mat(node.leaves.__iter__().next(), offset)
             else:
                 # the recursive call
-                mat_shape = node.dtype.base**node.d
-                base_mat = np.ones(mat_shape)*nv
+                # mat_shape = node.dtype.base**node.d
+                # base_mat = np.ones(mat_shape)*diagram.null_value
+                base_mat = np.array([])
                 # checking for the kind of diagram. MTxxx?
                 if self.offsets == {}:
-                    pos_counter = 0
-                    for edge_name in node.child_nodes:
-                        base_mat[pos_counter*mat_shape/node.dtype.base:(pos_counter+1)*mat_shape/node.dtype.base], _ = \
-                            to_mat_rec(node.child_nodes[edge_name], node.dtype.to_mat(node, 0, 0), nv)
-                        pos_counter += 1
+                    for edge_name in range(node.dtype.base):
+                        tmp_result = to_matrix_rec(node.child_nodes[edge_name], node.dtype.to_mat(node, 0, 0))
+                        base_mat = np.hstack((base_mat, tmp_result))
                 # or edge-value dd?
                 else:
-                    pos_counter = 0
-                    for edge_name in node.child_nodes:
-                        base_mat[pos_counter*mat_shape/node.dtype.base:(pos_counter+1)*mat_shape/node.dtype.base], _ = \
-                            to_mat_rec(node.child_nodes[edge_name],
-                                       node.dtype.to_mat(node, node.offsets[edge_name], offset), nv)
-                        pos_counter += 1
+                    for edge_name in range(node.dtype.base):
+                        tmp_result = to_matrix_rec(node.child_nodes[edge_name],
+                                                   node.dtype.to_mat(node, node.offsets[edge_name], offset))
+                        try:
+                            base_mat = np.hstack((base_mat, tmp_result))
+                        except ValueError:
+                            base_mat = base_mat[None]
+                            base_mat = np.hstack((base_mat, tmp_result))
+                return base_mat
 
-                return base_mat, mat_shape
-
-        result, shape = to_mat_rec(self, outer_offset, self.null_value)
-        rows = self.dtype.base**np.ceil(np.log(rows)/np.log(self.dtype.base))
-        result = np.reshape(result, (rows, shape/rows))
+        result = to_matrix_rec(self, outer_offset)
+        row_vars = np.log10(rows)/np.log10(self.dtype.base)
+        # ratio_of_approx = row_vars/(self.d-approximation_precision)
+        # rows = self.dtype.base**np.ceil(ratio_of_approx)
+        rows_pot = self.dtype.base**np.ceil(row_vars)
+        cols_pot = np.max(result.shape)/rows_pot
+        result = np.reshape(result, (rows_pot, cols_pot))
         # if desired, crop the result of all zero columns/rows in the lower right
         if cropping and not rows == 1:
             uncropped = True
