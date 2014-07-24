@@ -10,9 +10,11 @@ from diagram_exceptions import NoSuchNodeException, TerminalNodeException
 
 class Node(object):
     """
-    The generic node class, which should not be used directly in most cases
-    (think of it as being like an interface. The Objects to be used should be optimized
-    for the specific case, i.e. binary nodes (see class BNode))
+    The generic node class for the nodes of diagrams. Generally encodes:
+    - the number of children (outgoing branches)
+    - the child-objects, indexed by an integer
+    - the resp. edge-values, indexed by an integer
+    - a value, if it's a Leaf
     """
     properties = {}
     from diagram import MTxDD
@@ -75,9 +77,9 @@ class Node(object):
     @property
     def leaves(self):
         """
-        This property returns the leaves_array and the end of this diagram
-        :rtype: array
-        :return:
+        This property returns the leaves_array (i.e. all the nodes of type 'Leaf' part of this diagram)
+        :return: a list containing the leaves
+        :rtype: list
         """
         # is the current node a leaf?
         if self.is_leaf():
@@ -127,8 +129,8 @@ class Node(object):
     def nodes(self):
         """
         This property returns the nodes_set
-        :rtype : array of leaf-nodes
-        :return:
+        :rtype : list
+        :return: a list of leaf-nodes
         """
         # is the current node a leaf?
         if self.is_leaf():
@@ -253,9 +255,9 @@ class Node(object):
         A convenience method
         """
         if not depth is None:
-            return type(self)(diagram_type=self.dtype, nv=self.null_value, depth=depth)
+            return type(self)(diagram_type=self.dtype, nullvalue=self.null_value, depth=depth)
         else:
-            return type(self)(diagram_type=self.dtype, nv=self.null_value)
+            return type(self)(diagram_type=self.dtype, nullvalue=self.null_value)
 
     def complexity(self, mode='#nodes'):
         """
@@ -430,6 +432,7 @@ class Leaf(Node):
         self.shape = [1, 1]
         self.d = 0
 
+    @staticmethod
     def add_child(self, child, number, offset=None):
         """
         This method overrides the add_child method of Node, to prevent a leaf with a child

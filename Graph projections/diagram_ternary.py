@@ -4,14 +4,9 @@ __author__ = 'clemens'
 from diagram import Diagram, MTxDD, AEVxDD, MEVxDD, AAxEVDD
 
 
-class TernaryDiagram(Diagram):
-    base = 3
-
-
-class RMF3DD(MTxDD, TernaryDiagram):
+class RMF3DD(MTxDD):
     def __init__(self):
-        from node import Node, Leaf
-        Diagram.__init__(self, Node, Leaf)
+        MTxDD.__init__(self, 3)
 
     def transform_basis(self, blocks):
         """
@@ -22,25 +17,21 @@ class RMF3DD(MTxDD, TernaryDiagram):
         return [blocks[0], blocks[0]+2*blocks[1], blocks[0]+blocks[1]+blocks[2]]
 
 
-class MT3DD(MTxDD, TernaryDiagram):
+class MT3DD(MTxDD):
     def __init__(self):
-        from node import Node, Leaf
-        Diagram.__init__(self, Node, Leaf)
+        MTxDD.__init__(self, 3)
 
 
-class AEV3DD(AEVxDD, TernaryDiagram):
+class AEV3DD(AEVxDD):
     def __init__(self):
-        from node import Node, Leaf
-        Diagram.__init__(self, Node, Leaf)
+        AEVxDD.__init__(self, 3)
 
 
-class MEV3DD(MEVxDD, TernaryDiagram):
+class MEV3DD(MEVxDD):
     def __init__(self):
-        from node import Node, Leaf
-        Diagram.__init__(self, Node, Leaf)
+        MEVxDD.__init__(self, 3)
 
 
-class AAEV3DD(AAxEVDD, TernaryDiagram):
+class AAEV3DD(AAxEVDD):
     def __init__(self):
-        from node import Node, Leaf
-        Diagram.__init__(self, Node, Leaf)
+        AAxEVDD.__init__(self, 3)

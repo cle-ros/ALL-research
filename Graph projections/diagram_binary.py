@@ -1,34 +1,26 @@
 __author__ = 'clemens'
 
-from diagram import Diagram, MTxDD, AEVxDD, MEVxDD, AAxEVDD
+from diagram import MTxDD, AEVxDD, MEVxDD, AAxEVDD
 
 
-class BinaryDiagram(Diagram):
-    base = 2
-
-
-class MT2DD(MTxDD, BinaryDiagram):
+class MT2DD(MTxDD):
     def __init__(self):
-        from node import Node, Leaf
-        Diagram.__init__(self, Node, Leaf)
+        MTxDD.__init__(self, 2)
 
 
-class AEV2DD(AEVxDD, BinaryDiagram):
+class AEV2DD(AEVxDD):
     def __init__(self):
-        from node import Node, Leaf
-        Diagram.__init__(self, Node, Leaf)
+        AEVxDD.__init__(self, 2)
 
 
-class MEV2DD(MEVxDD, BinaryDiagram):
+class MEV2DD(MEVxDD):
     def __init__(self):
-        from node import Node, Leaf
-        Diagram.__init__(self, Node, Leaf)
+        MEVxDD.__init__(self, 2)
 
 
-class AAEV2DD(AAxEVDD, BinaryDiagram):
+class AAEV2DD(AAxEVDD):
     """
     This is an implementation of Scott Sanner's affine algebraic DDs
     """
     def __init__(self):
-        from node import Node, Leaf
-        Diagram.__init__(self, Node, Leaf)
+        AAxEVDD.__init__(self, 2)

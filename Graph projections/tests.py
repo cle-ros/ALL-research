@@ -8,7 +8,6 @@ import config
 import pylab as pl
 
 
-
 def test_multiplication(number, max_size, sparsity):
     """
     This function just computes many, many diagram multiplications and checks them
@@ -965,8 +964,78 @@ def test_operation_approx():
     pl.show()
 
 
+def test_operation_approx2():
+    mat1 = np.array([[ 10,  11,  12,  113,  14,  15,  16,  17],
+                     [ 30,  31,  32,  33,  324,  35,  36,  37],
+                     [ 50,  51,  52,  53,  54,  55,  56,  57],
+                     [ 70,  71,  72,  713,  74,  415075,  76,  77],
+                     [ 90,  91,  92,  93,  94,  95,  96,  97],
+                     [110, 111, 112, 113, 4114, 115, 116, 117],
+                     [130, 131, 132, 133, 134, 15135, 136, 137],
+                     [150, 151, 1592, 153, 154, 155, 156, 157]], dtype='float64')
+
+    # # mat1 = np.random.random((8, 8))/10
+    #
+    # # mat1 = np.reshape(mat1, (1, np.prod(mat1.shape)))+ ((np.arange(0, 64, 1))/34) + (np.sin(np.arange(0, 64, 1).astype('float64')/32*np.pi))
+    # mat1 = (np.sin(np.arange(0, 64, 1).astype('float64')/16*np.pi))
+    from diagram_binary import MT2DD, AEV2DD, MEV2DD, AAEV2DD
+    from diagram_ternary import MT3DD, AEV3DD, MEV3DD, AAEV3DD
+    from diagram_computations import multiply, multiply_matrix_by_column_vector, reset_variable_order, scalar_multiply_diagram
+    aevdd = AEV2DD()
+    diagram_mat = aevdd.create(mat1, 0)
+    # using the power method as a first test
+    vec1 = np.random.random((8, 1))
+    result = [[], [], []]
+    ref_result = np.array(vec1)
+    for i in range(1, -1, -1):
+        diagram_vec = aevdd.create(vec1, 0)
+        for j in range(15):
+            diagram_vec = multiply_matrix_by_column_vector(diagram_mat, diagram_vec, approximation_precision=i)
+            mult = (1/np.sqrt(np.sum(np.multiply(diagram_vec.to_matrix(approximation_precision=i),
+                                                 diagram_vec.to_matrix(approximation_precision=i)))))
+            scalar_multiply_diagram(diagram_vec, mult)
+            ref_result = np.dot(mat1, ref_result)
+            ref_result *= (1/np.sqrt(np.sum(np.multiply(ref_result, ref_result))))
+            result[i].append(diagram_vec.to_matrix(approximation_precision=i)[0])
+            result[2].append(ref_result)
+        reset_variable_order(diagram_mat)
+        reset_variable_order(diagram_vec)
+    print result[0]
+    print result[1]
+    print result[2]
+    pl.figure()
+    a = np.array(range(len(result[0][0])))
+    b = np.array(range(len(result[1][1]))) * 2.0
+    for i in range(1, 15, 2):
+        pl.plot(b, result[1][i])
+        pl.plot(a, result[0][i])
+        pl.plot(a, result[2][i])
+    # pl.plot(mat6[0], mat6[1])
+    pl.show()
+    # aevdd = MEV2DD()
+    # diagram1 = aevdd.create(mat1, 0)
+    # mat2 = np.array([np.arange(8, 64, 16), approx(diagram1, 2, 1)[0]])
+    # # print mat2
+    # mat3 = np.array([np.arange(4, 64, 8), approx(diagram1, 3, 1)[0]])
+    # # print mat3
+    # mat4 = np.array([np.arange(2, 64, 4), approx(diagram1, 4, 1)[0]])
+    # # print mat4
+    # mat5 = np.array([np.arange(1, 64, 2), approx(diagram1, 5, 1)[0]])
+    # # print mat5
+    # mat6 = np.array([np.arange(0, 64, 1), approx(diagram1, 6, 1)[0]])
+    # # print mat6
+    # pl.figure()
+    # pl.plot(mat2[0], mat2[1])
+    # pl.plot(mat3[0], mat3[1])
+    # pl.plot(mat4[0], mat4[1])
+    # pl.plot(mat5[0], mat5[1])
+    # pl.plot(mat6[0], mat6[1])
+    # pl.title('2-5 variable approx')
+    # pl.show()
+
+
 if __name__ == "__main__":
-    test_operation_approx()
+    test_operation_approx2()
     # test_approx()
     # test_multiplications()
     # test_elementwise_operations()

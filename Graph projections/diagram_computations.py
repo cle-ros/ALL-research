@@ -5,7 +5,6 @@ Created on Fri Feb 14 13:11:22 2014
 @author: clemens
 """
 import copy
-from node import Node
 from diagram_exceptions import UnmatchingDiagramsException
 import numpy as np
 
@@ -20,12 +19,12 @@ def scalar_multiply_diagram(diagram, scalar):
     :type scalar: float
     :rtype: node.Node
     """
-    diagram.reinitialize_nodes()
-    result = copy.deepcopy(diagram)
+    diagram.reinitialize()
+    # result = copy.deepcopy(diagram)
 
     diagram.dtype.scalar_mult(diagram, scalar)
 
-    return result
+    return diagram
 
 
 def exchange_variable_order_with_children(node, depth):
@@ -181,8 +180,8 @@ def multiply_elementwise(diagram1, diagram2, offset_1=None, offset_2=None, appro
     :return: a diagram (a new object) of the elementwise multiplication
     :type diagram1: node.Node
     :type diagram2: node.Node
-    :type offset_1: numpy.array
-    :type offset_2: numpy.array
+    :type offset_1: numpy.ndarray
+    :type offset_2: numpy.ndarray
     :type approximation_precision: int
     :type decimal_precision: int
     :type in_place: bool
@@ -203,8 +202,8 @@ def addition_elementwise(diagram1, diagram2, offset_1=None, offset_2=None, appro
     :return:
     :type diagram1: node.Node
     :type diagram2: node.Node
-    :type offset_1: numpy.array
-    :type offset_2: numpy.array
+    :type offset_1: numpy.ndarray
+    :type offset_2: numpy.ndarray
     :type approximation_precision: int
     :type decimal_precision: int
     :rtype: node.Node
@@ -212,6 +211,28 @@ def addition_elementwise(diagram1, diagram2, offset_1=None, offset_2=None, appro
     import numpy
     return operation_elementwise(diagram1, diagram2, numpy.add, offset_1, offset_2, approximation_precision,
                                  decimal_precision)
+
+
+def fill_up_with_child_levels(floating_node):
+    """
+    This function creates child nodes until the depth indicated in the node is correct.
+    :param node:
+    :return:
+    :type node: node.Node
+    :rtype: node.Node
+    """
+    node = floating_node
+    while not node.is_leaf():
+        if node.d == 1:
+            new_child_node = node.create_leaf(node.dtype.null_leaf_value)
+        else:
+            new_child_node = node.create_node(depth=node.d-1)
+        for i in range(node.dtype.base):
+            node.child_nodes[i] = new_child_node
+            if node.offsets != {}:
+                node.offsets[i] = node.dtype.null_edge_value
+        node = new_child_node
+    return node
 
 
 def operation_elementwise(diagram1, diagram2, operation, offset_1, offset_2, approximation_precision=0,
@@ -233,8 +254,8 @@ def operation_elementwise(diagram1, diagram2, operation, offset_1, offset_2, app
     :type diagram1: node.Node
     :type diagram2: node.Node
     :type operation: function
-    :type offset_1: numpy.array
-    :type offset_2: numpy.array
+    :type offset_1: numpy.ndarray
+    :type offset_2: numpy.ndarray
     :type approximation_precision: int
     :type decimal_precision: int
     :type in_place: bool
@@ -244,7 +265,7 @@ def operation_elementwise(diagram1, diagram2, operation, offset_1, offset_2, app
     arg_1_precision = 2 * approximation_precision if matrix_multiplication else approximation_precision
     # The hashmap of the results, to minimize computations
     hashmap_of_results = {}
-    dd = diagram1.dtype()
+    dd = diagram1.dtype
     if decimal_precision != -1:
         def rounding(array):
             return np.round(array, decimal_precision)
@@ -263,8 +284,8 @@ def operation_elementwise(diagram1, diagram2, operation, offset_1, offset_2, app
         :return:
         :type node1: node.Node
         :type node2: node.Node
-        :type offset1: numpy.array
-        :type offset2: numpy.array
+        :type offset1: numpy.ndarray
+        :type offset2: numpy.ndarray
         """
         # do we know the result already?
         hash_of_current_operation = hash_for_multiple_nodes(node1, node2, offset1, offset2)
@@ -279,11 +300,14 @@ def operation_elementwise(diagram1, diagram2, operation, offset_1, offset_2, app
         elif node1.is_leaf() and node2.is_leaf():
             return rounding(operation(node1.value, node2.value))
         elif node1.child_nodes.values()[0].is_leaf() or node2.d == approximation_precision + 1:
-            if in_place == '1':
+            if in_place == 1:
                 node = node1
-            elif in_place == '2':
+                depth = node1.d
+            elif in_place == 2:
                 node = node2
-            node.d = depth = 1
+                depth = node2.d
+            else:
+                node.d = depth = 1
             if approximation_precision == 0:
                 node, new_offset = dd.create_leaves(node, rounding(operation(node1.to_matrix(outer_offset=offset1),
                                                                              node2.to_matrix(outer_offset=offset2)))[0])
@@ -291,6 +315,7 @@ def operation_elementwise(diagram1, diagram2, operation, offset_1, offset_2, app
                 node, new_offset = dd.create_tuple(node, rounding(
                     operation(node1.to_matrix(outer_offset=offset1, approximation_precision=arg_1_precision),
                               node2.to_matrix(outer_offset=offset2, approximation_precision=approximation_precision)))[0])
+                fill_up_with_child_levels(node)
         else:
             offset = {}
             depth = 0
@@ -353,7 +378,7 @@ def sum_over_all(diagram1, approximation_precision=0):
         :param offset1:
         :return:
         :type node1: node.Node
-        :type offset1: numpy.array
+        :type offset1: numpy.ndarray
         """
         # do we know the result already?
         hash_of_current_operation = hash_for_multiple_nodes(node1, node1, offset1, None)
@@ -364,7 +389,11 @@ def sum_over_all(diagram1, approximation_precision=0):
         if node1.is_leaf():
             return node1.value
         elif node1.d == approximation_precision:
-            return node1.dtype.to_mat(next(iter(node1.leaves)), loffset=node1.dtype.null_edge_value, goffset=offset1)
+            try:
+                return node1.dtype.to_mat(next(iter(node1.leaves)), loffset=node1.dtype.null_edge_value,
+                                          goffset=offset1)
+            except StopIteration:
+                return node1.dtype.to_mat(node1, loffset=node1.dtype.null_edge_value, goffset=offset1, reorder=True)
         elif node1.child_nodes[node1.child_nodes.keys()[0]].is_leaf():
             tmp_result = np.sum(node1.to_matrix(outer_offset=offset1))
             hashmap_of_results[hash_of_current_operation] = tmp_result
@@ -391,9 +420,23 @@ def dot_product(diagram_vec_1, diagram_vec_2, offset_1=None, offset_2=None, appr
                 decimal_precision=-1, in_place=False, matrix_multiplication=False):
     """
     This function computes the dot product (inner product) of two diagrams, each representing a vector.
-    :param diagram_vec_1:
-    :param diagram_vec_2:
+    :param diagram_vec_1: the first vector
+    :param diagram_vec_2: the second vector
+    :param offset_1: the first vector's offset
+    :param offset_2: the second vector's offset
+    :param approximation_precision: the level of approximation (in excluded vars)
+    :param decimal_precision: the level of decimal precision
+    :param in_place: shall some calculation be done in place? if so, specify '1' or '2' for 1st or 2nd diagram
+    :param matrix_multiplication: is this function call part of a matrix multiplication?
     :return:
+    :type diagram_vec_1: node.Node
+    :type diagram_vec_2: node.Node
+    :type offset_1: numpy.ndarray
+    :type offset_2: numpy.ndarray
+    :type approximation_precision: int
+    :type decimal_precision: int
+    :type in_place: bool
+    :type matrix_multiplication: bool
     """
     if diagram_vec_1.d - approximation_precision != diagram_vec_2.d:
         raise UnmatchingDiagramsException
@@ -419,12 +462,12 @@ def multiply_matrix_by_column_vector(diagram_mat, diagram_vec, outer_offset_mat=
     :return: a diagram (a new object) of the elementwise multiplication; the final offset (if specified)
     :type diagram_mat: node.Node
     :type diagram_vec: node.Node
-    :type outer_offset_mat: numpy.array
-    :type outer_offset_vec: numpy.array
+    :type outer_offset_mat: numpy.ndarray
+    :type outer_offset_vec: numpy.ndarray
     :type approximation_precision: int
     :type decimal_precision: int
     :type final_offset: bool
-    :type in_place: bool
+    :type in_place: int
     :rtype: node.Node
     """
     # some argument checking
@@ -433,7 +476,7 @@ def multiply_matrix_by_column_vector(diagram_mat, diagram_vec, outer_offset_mat=
 
     # The hashmap of the results, to minimize computations
     hashmap_of_results = {}
-    dd = diagram_mat.dtype()
+    dd = diagram_mat.dtype
 
     # the recursive function
     def multiply_matrix_by_column_vector_rec(node_mat, node_vec, offset_mat, offset_vec):
@@ -446,9 +489,9 @@ def multiply_matrix_by_column_vector(diagram_mat, diagram_vec, outer_offset_mat=
         :return:
         :type node_mat: node.Node
         :type node_vec: node.Node
-        :type offset_mat: numpy.array
-        :type offset_vec: numpy.array
-        :rtype: [node.Node, numpy.array, int]
+        :type offset_mat: numpy.ndarray
+        :type offset_vec: numpy.ndarray
+        :rtype: [node.Node, numpy.ndarray, int]
         """
         # do we know the result already?
         hash_of_current_operation = hash_for_multiple_nodes(node_mat, node_vec, offset_mat, offset_vec)
@@ -458,7 +501,10 @@ def multiply_matrix_by_column_vector(diagram_mat, diagram_vec, outer_offset_mat=
         node = diagram_mat.__class__('', diagram_type=diagram_mat.dtype)
 
         # Are we selecting rows, or performing the dot product?
-        if node_mat.d - approximation_precision == node_vec.d + 1:
+        if node_mat.d < node_vec.d:
+            from diagram_exceptions import UnmatchingDiagramsException
+            raise UnmatchingDiagramsException
+        elif node_mat.d - approximation_precision == node_vec.d + 1:
             node.d = depth = 1
             leaf_values = []
             if diagram_mat.offsets == {}:
@@ -541,8 +587,24 @@ def push_approximation_columns(diagram, diagram_height, approximation_precision)
     return diagram
 
 
+def reset_variable_order(diagram):
+    """
+    This function reorders the diagram to its original variable order
+    :param diagram:
+    :return:
+    :type diagram: node.Node
+    :rtype: node.Node
+    """
+    if not diagram.in_order:
+        for i in reversed(diagram.exchange_order):
+            exchange_variable_order_with_children(diagram, i)
+        diagram.in_order = True
+        diagram.exchange_order = []
+    return diagram
+
+
 def multiply(diagram1, diagram2, height_second_argument, approximation_precision=0, decimal_precision=-1,
-             to_transpose=True, in_place=False):
+             to_transpose=True, in_place=0, exchange_order='smart'):
     """
     This function multiplies two diagrams elementwise following the logic of matrix multiplication
     (i.e. like numpy.dot(d1, d2) or d1*d2 in Matlab)
@@ -553,6 +615,8 @@ def multiply(diagram1, diagram2, height_second_argument, approximation_precision
     :param approximation_precision: The number of variables (depth in the diagram) to be ignored
     :param decimal_precision: The rounding precision
     :param to_transpose:
+    :param in_place:
+    :param exchange_order:
     :return: a diagram (a new object) of the elementwise multiplication
     :type diagram1: node.Node
     :type diagram2: node.Node
@@ -560,12 +624,13 @@ def multiply(diagram1, diagram2, height_second_argument, approximation_precision
     :type approximation_precision: int
     :type decimal_precision: int
     :type to_transpose: bool
-    :type in_place: bool
+    :type in_place: int
+    :type exchange_order: str
     :rtype: node.Node
     """
     # The hashmap of the results, to minimize computations
     hashmap_of_results = {}
-    dd = diagram1.dtype()
+    dd = diagram1.dtype
 
     # some argument conversion:
     outer_height = np.ceil(np.log10(height_second_argument)/np.log10(dd.base))
@@ -575,8 +640,14 @@ def multiply(diagram1, diagram2, height_second_argument, approximation_precision
         diagram3 = diagram2
     # pushing the horizontal approximation variables in the front (variable reordering logic)
     if approximation_precision > 0:
-        push_approximation_columns(diagram1, approximation_precision)
-        push_approximation_columns(diagram3, approximation_precision)
+        if exchange_order == 'smart':
+            if not diagram1.in_order:
+                push_approximation_columns(diagram1, height_second_argument, approximation_precision)
+            if not diagram3.in_order:
+                push_approximation_columns(diagram3, height_second_argument, approximation_precision)
+        elif exchange_order == 'force':
+            push_approximation_columns(diagram1, height_second_argument, approximation_precision)
+            push_approximation_columns(diagram3, height_second_argument, approximation_precision)
 
     # the recursive function
     def multiply_rec(node_mat_1, node_mat_2, offset_mat_1, offset_mat_2):
@@ -589,8 +660,8 @@ def multiply(diagram1, diagram2, height_second_argument, approximation_precision
         :return:
         :type node_mat_1: node.Node
         :type node_mat_2: node.Node
-        :type offset_mat_1: numpy.array
-        :type offset_mat_2: numpy.array
+        :type offset_mat_1: numpy.ndarray
+        :type offset_mat_2: numpy.ndarray
         """
         # do we know the result already?
         hash_of_current_operation = hash_for_multiple_nodes(node_mat_1, node_mat_2, offset_mat_1, offset_mat_2)

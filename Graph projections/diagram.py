@@ -12,6 +12,7 @@ class Diagram:
     """
     This is an interface/abstract class for all different diagram types
     """
+    base = None
     __metaclass__ = Singleton
 
     def __init__(self, nt, lt):
@@ -30,7 +31,18 @@ class Diagram:
         """
         raise NotImplementedError
 
-    def to_mat(self, loffset, goffset, reorder=False):
+    def to_mat(self, loffset, goffset=None, reorder=False):
+        """
+        This method converts two offsets to a corresponding matrix form. If the node is a leaf, it includes its value.
+        :param loffset:
+        :param goffset:
+        :param reorder:
+        :raise NotImplementedError:
+        :type loffset: numpy.ndarray
+        :type goffset: numpy.ndarray
+        :type reorder: bool
+        :rtype: numpy.ndarray
+        """
         raise NotImplementedError
 
     @staticmethod
@@ -42,8 +54,11 @@ class Diagram:
         """
         This function adds two nodes
         :rtype : array of offsets (e.g. n-offset, p-offset)
-        :param node1: the first node
+        :param diagram1: the first node
+        :param diagram2: the second node
         :param offset: the parent offset
+        :type diagram1: node.Node
+        :type diagram2: node.Node
         """
         raise NotImplementedError
 
@@ -78,6 +93,13 @@ class Diagram:
 
     @staticmethod
     def rearrange_offsets(exchange_matrix, dtype):
+        """
+        This method computes the new offsets resulting from a variable-exchange. I.e., it takes the existing offsets,
+        combines them, and computes new ones based on the changed order of the variables.
+        :param exchange_matrix: An array defining the
+        :param dtype:
+        :return:
+        """
         import numpy as np
         # computing the combined offsets
         comb_offsets = np.array([])
@@ -124,7 +146,7 @@ class Diagram:
         :param to_reduce:   Whether the tree shall be represented as a diagram
         :param dec_digits:  The number of decimal digits to round to
         :return: the diagram
-        :type matrix: numpy.array
+        :type matrix: numpy.ndarray
         :type null_value: float
         :type to_reduce: bool
         :type dec_digits: int
@@ -147,12 +169,12 @@ class Diagram:
         def create_diagram_rec(values):
             """
             The recursive function
-            :type values: numpy.array
+            :type values: numpy.ndarray
             :rtype node: node.Node
-            :rtype new_offset: array
+            :rtype new_offset: list
             :rtype depth: int
             """
-            node = self.node_type('', diagram_type=self.__class__)
+            node = self.node_type('', diagram_type=self.__class__())
             entry_length = len(values)/self.base
             if entry_length == 1:
                 node, new_offset = self.create_leaves(node, values)
@@ -209,7 +231,7 @@ class MTxDD(Diagram):
         :param leaf_values: the leaf values
         :return: the parent node, with properly modified child properties
         :type parent_node: node.Node
-        :type leaf_values: numpy.array
+        :type leaf_values: numpy.ndarray
         :rtype: node.Node
         """
         for i in range(self.base):
@@ -223,7 +245,14 @@ class MTxDD(Diagram):
     @staticmethod
     def to_mat(leaf, loffset=None, goffset=None, reorder=False):
         """
-        The diagram-type specific function to convert nodes to matrices
+        This method converts two offsets to a corresponding matrix form. If the node is a leaf, it includes its value.
+        :param loffset:
+        :param goffset:
+        :param reorder:
+        :type loffset: numpy.ndarray
+        :type goffset: numpy.ndarray
+        :type reorder: bool
+        :rtype: numpy.ndarray
         """
         import numpy as np
         if leaf.is_leaf():
@@ -247,7 +276,8 @@ class MTxDD(Diagram):
         """
         ret_mat = []
         for exchange_row in exchange_matrix:
-            ret_mat.append([exchange_row[0], exchange_row[3], exchange_row[4], exchange_row[1], exchange_row[2], exchange_row[5]])
+            ret_mat.append([exchange_row[0], exchange_row[3], exchange_row[4], exchange_row[1], exchange_row[2],
+                            exchange_row[5]])
         return ret_mat
 
     @staticmethod
@@ -264,6 +294,7 @@ class AEVxDD(Diagram):
     This is the class for all additive edge-valued DDs of arbitrary basis. The basis is set at initialization
     """
     null_edge_value = 0.0
+    null_leaf_value = 0.0
 
     def __init__(self, basis):
         from node import Node, Leaf
@@ -277,7 +308,7 @@ class AEVxDD(Diagram):
         :param leaf_values: the leaf values
         :return: the parent node, with properly modified child properties
         :type parent_node: node.Node
-        :type leaf_values: numpy.array
+        :type leaf_values: numpy.ndarray
         :rtype: node.Node
         """
         from node import Leaf
@@ -315,8 +346,15 @@ class AEVxDD(Diagram):
     @staticmethod
     def to_mat(node, loffset=0.0, goffset=None, reorder=False):
         """
-        The diagram-type specific function to convert nodes to matrices
-        :raises: TypeError
+        This method converts two offsets to a corresponding matrix form. If the node is a leaf, it includes its value.
+        :param loffset:
+        :param goffset:
+        :param reorder:
+        :raise TypeError:
+        :type loffset: numpy.ndarray
+        :type goffset: numpy.ndarray
+        :type reorder: bool
+        :rtype: numpy.ndarray
         """
         goffset = 0 if goffset is None else goffset
         import numpy as np
@@ -353,6 +391,7 @@ class MEVxDD(Diagram):
     This is the class for all additive edge-valued DDs of arbitrary basis. The basis is set at initialization
     """
     null_edge_value = 1.0
+    null_leaf_value = 1.0
 
     def __init__(self, basis):
         from node import Node, Leaf
@@ -366,7 +405,7 @@ class MEVxDD(Diagram):
         :param leaf_values: the leaf values
         :return: the parent node, with properly modified child properties
         :type parent_node: node.Node
-        :type leaf_values: numpy.array
+        :type leaf_values: numpy.ndarray
         :rtype: node.Node
         """
         from node import Leaf
@@ -411,7 +450,14 @@ class MEVxDD(Diagram):
     @staticmethod
     def to_mat(node, loffset=1.0, goffset=1.0, reorder=False):
         """
-        The diagram-type specific function to convert nodes to matrices
+        This method converts two offsets to a corresponding matrix form. If the node is a leaf, it includes its value.
+        :param loffset:
+        :param goffset:
+        :param reorder:
+        :type loffset: numpy.ndarray
+        :type goffset: numpy.ndarray
+        :type reorder: bool
+        :rtype: numpy.ndarray
         """
         goffset = 1 if goffset is None else goffset
         import numpy as np
@@ -446,6 +492,7 @@ class AAxEVDD(Diagram):
     """
     import numpy
     null_edge_value = numpy.array([0.0, 1.0])
+    null_leaf_value = 0.0
 
     def __init__(self, basis):
         from node import Node, Leaf
@@ -466,7 +513,7 @@ class AAxEVDD(Diagram):
         :param leaf_values: the leaf values
         :return: the parent node, with properly modified child properties
         :type parent_node: node.Node
-        :type leaf_values: numpy.array
+        :type leaf_values: numpy.ndarray
         :rtype: node.Node
         """
         # TODO: find generalization!!
@@ -494,7 +541,8 @@ class AAxEVDD(Diagram):
             parent_node.offsets[0] = np.array([1, 1], dtype='float64')
             for i in range(1, self.base, 1):
                 parent_node.child_nodes[i] = parent_node.child_nodes[0]
-                parent_node.offsets[i] = np.array([leaf_values[i]/leaf_values[0], (leaf_values[i]/leaf_values[0])], dtype='float64')
+                parent_node.offsets[i] = np.array([leaf_values[i]/leaf_values[0], (leaf_values[i]/leaf_values[0])],
+                                                  dtype='float64')
             return parent_node, [0, leaf_values[0]]
 
     def create_tuple(self, node, offset):
@@ -509,7 +557,8 @@ class AAxEVDD(Diagram):
         # mult_coefficient = mult_coefficient if mult_coefficient != 0.0 else 1.0
         # node.offsets[0] = np.array([0, offset[0][1]], dtype='float64')
         # for i in range(self.base):
-        #     node.offsets[i] = np.array([((offset[i][0]-additive_coefficient)/mult_coefficient), mult_coefficient], dtype='float64')
+        #     node.offsets[i] = np.array([((offset[i][0]-additive_coefficient)/mult_coefficient), mult_coefficient],
+        # dtype='float64')
         # return node, [additive_coefficient, mult_coefficient]
         if offset[0][1] == 0 or offset[1][0]-offset[0][0] < offset[1][1]/offset[0][1]:
             node.offsets[0] = np.array([0, offset[0][1]], dtype='float64')
@@ -525,7 +574,14 @@ class AAxEVDD(Diagram):
     @staticmethod
     def to_mat(node, loffset, goffset=None, reorder=False):
         """
-        The diagram-type specific function to convert nodes to matrices
+        This method converts two offsets to a corresponding matrix form. If the node is a leaf, it includes its value.
+        :param loffset:
+        :param goffset:
+        :param reorder:
+        :type loffset: numpy.ndarray
+        :type goffset: numpy.ndarray
+        :type reorder: bool
+        :rtype: numpy.ndarray
         """
         goffset = AAxEVDD.null_edge_value if goffset is None else goffset
         loffset = AAxEVDD.null_edge_value if loffset is None else loffset
