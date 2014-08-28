@@ -4,8 +4,10 @@
 """
 
 import numpy as np
-import config
 import pylab as pl
+
+import config
+from file_interaction import load_data, store_results
 
 
 def test_multiplication(number, max_size, sparsity):
@@ -18,8 +20,8 @@ def test_multiplication(number, max_size, sparsity):
     :return:
     """
     misses = []
-    from diagram_initialization import initialize_diagram, expand_matrix_exponential
-    from diagram_computations import multiply_diagram
+    from diagram.operations.initialization import initialize_diagram, expand_matrix_exponential
+    from diagram.operations.computations import multiply_diagram
 
     for i in range(number):
         # creating the sizes of the matrices
@@ -59,8 +61,8 @@ def test_multiplication(number, max_size, sparsity):
 
 def run_tests():
     import numpy as np
-    from diagram_initialization import initialize_diagram
-    from diagram_computations import transpose_diagram, multiply_diagram
+    from diagram.operations.initialization import initialize_diagram
+    from diagram.operations.computations import transpose_diagram, multiply_diagram
     #mat1 = np.random.random_integers(0,5,[3,3])
     #mat2 = np.random.random_integers(-5,0,[3,3])
     mat1 = np.array([[1, 2, 0], [0, 3, 0], [0, 4, 1], [1, 5, 0], [1, 5, 0], [1, 5, 0], [1, 5, 0]])
@@ -100,14 +102,14 @@ def run_tests():
 def run_tests2():
     a = np.array([[0.5, 0, 0, 0], [0, 0, 0, 0]])
     diag1 = BNode('x')
-    from diagram_initialization import initialize_diagram
+    from diagram.operations.initialization import initialize_diagram
 
     initialize_diagram(diag1, a, 0)
     print diag1.to_matrix(2, False)
 
 
 def test_new_implementation():
-    from diagram import MTBDD
+    from diagram.diagram import MTBDD
 
     mat1 = np.array([[1, 2, 0], [0, 3, 0], [0, 4, 1], [1, 5, 0], [1, 5, 0], [1, 5, 0], [1, 5, 0]])
     mtbdd = MTBDD()
@@ -117,7 +119,7 @@ def test_new_implementation():
 
 
 def test_reduction():
-    from diagram_binary import MTBDD, EVBDD
+    from diagram.binary import MTBDD, EVBDD
 
     mat1 = np.array([[1, 2, 0], [0, 1, 0], [2, 4, 1], [1, 5, 0], [1, 5, 0], [1, 5, 0], [1, 5, 0]], dtype=float)
     print mat1
@@ -148,7 +150,7 @@ def test_reduction():
 
 
 def test_addition():
-    from diagram import MTBDD, EVBDD
+    from diagram.diagram import MTBDD, EVBDD
 
     mat1 = np.array([[1, 7, 0], [0, -1, 0], [2, 8, 1], [1, 5, 0], [1, 5, 0], [1, 5, 0], [1, 15, 0]], dtype=float)
     print mat1 + mat1
@@ -156,7 +158,7 @@ def test_addition():
     mtbdd = MTBDD()
     node1 = mtbdd.create(mat1, 0)
     node2 = mtbdd.create(mat1, 0)
-    from diagram_computations import add_diagrams
+    from diagram.operations.computations import add_diagrams
 
     node3 = add_diagrams(node1, node2)
     print node3.to_matrix(7, True)
@@ -164,7 +166,7 @@ def test_addition():
     evbdd = EVBDD()
     node4 = evbdd.create(mat1, 0)
     node5 = evbdd.create(mat1, 0)
-    from diagram_computations import diagram_sum
+    from diagram.operations.computations import diagram_sum
 
     node6 = add_diagrams(node4, node5)
     print node6.to_matrix(7, True)
@@ -179,14 +181,14 @@ def test_addition():
 
 
 def test_multiplication():
-    from diagram import MTBDD, EVBDD
+    from diagram.diagram import MTBDD, EVBDD
 
     mat1 = np.array([[1, 7, 0], [0, -1, 0], [2, 8, 1], [1, 5, 0], [1, 5, 0], [1, 5, 0], [1, 15, 0]], dtype=float)
     print mat1
     print 'Scalar Multiplication: ~~~~~~~~~~~~~~'
     print mat1 * 2.5
     print('MTBDD:')
-    from diagram_computations import scalar_multiply_diagram, elementwise_multiply_diagrams_evbdd, \
+    from diagram.operations.computations import scalar_multiply_diagram, elementwise_multiply_diagrams_evbdd, \
         elementwise_multiply_diagrams_mtbdd, multiply_by_column_vector, multiply_diagram
 
     mtbdd = MTBDD()
@@ -235,7 +237,7 @@ def test_multiplication():
 
 
 def general_tests():
-    from diagram import MTBDD, EVBDD
+    from diagram.diagram import MTBDD, EVBDD
 
     mtbdd = MTBDD()
     evbdd = EVBDD()
@@ -277,7 +279,7 @@ def test_power_method(iterations, episodes, max_size):
             # normalizing
             vec /= np.linalg.norm(vec)
             # creating the BDD representations
-            from diagram import MTBDD, EVBDD
+            from diagram.diagram import MTBDD, EVBDD
             mtbdd = MTBDD()
             evbdd = EVBDD()
             node_mt = mtbdd.create(np.round(config.precision_elements/np.max(vec)*vec, config.precision_round), 0)
@@ -303,7 +305,7 @@ def test_power_method_sparse(iterations, episodes, max_size, sparsity):
             # normalizing
             vec /= np.linalg.norm(vec)
             # creating the BDD representations
-            from diagram import MTBDD, EVBDD
+            from diagram.diagram import MTBDD, EVBDD
             mtbdd = MTBDD()
             evbdd = EVBDD()
             node_mt = mtbdd.create(np.round(config.precision_elements/np.max(vec)*vec, config.precision_round), 0)
@@ -347,7 +349,6 @@ def test_performance():
         mcar.main(num_episodes=1, max_iters=iterations*10)
         config.unknown_episode = True
     # storing the result
-    from store_results import store_results
     # import code; code.interact(local=dict(locals().items() + globals().items()))
     for test_key in config.glob_result.keys():
         print test_key
@@ -379,7 +380,7 @@ def test_performance():
 def plot_graphs():
     # mat1 = np.array([[1, 4], [1, 4], [1, 4], [1, 4]])
     mat1 = np.random.random((4, 4))
-    from diagram_binary import MTBDD, EVBDD
+    from diagram.binary import MTBDD, EVBDD
     mtbdd = MTBDD()
     evbdd = EVBDD()
     node1 = mtbdd.create(mat1, 0)
@@ -408,7 +409,6 @@ def plot_results():
     title = 'LSPI (directed two rooms), rounded'
     data_length1 = 1
     data_length2 = 25
-    from load_data import load_data
     import matplotlib.pyplot as plt
     d1 = load_data(filename1)
     d2 = load_data(filename2)
@@ -436,8 +436,8 @@ def plot_results():
 
 
 def test_mddd():
-    from diagram import MTxDD
-    from matrix_and_variable_operations import kronecker_expansion
+    from diagram.diagram import MTxDD
+
     mtqdd = MTxDD(3)
     # mat1 = np.array([[1, 7, 0]], dtype=float)
     # mat1 = np.array([[1, 7, 0], [0, -1, 0], [2, 8, 1], [1, 5, 0], [1, 5, 0], [1, 5, 0], [1, 15, 0]], dtype=float)
@@ -470,7 +470,7 @@ def test_mddd():
 
 
 def test_hash():
-    from diagram import MTxDD
+    from diagram.diagram import MTxDD
     mtqdd = MTxDD(4)
     mat1 = np.array([[1, 7, 0], [0, -1, 0], [2, 8, 1], [1, 5, 0], [1, 5, 0], [1, 5, 0], [1, 15, 0]], dtype=float)
     diagram1 = mtqdd.create(mat1, 0, False)
@@ -485,8 +485,7 @@ def pseudo_reduction():
         # 'id4'       : np.identity(4),
         # 'rmf4'      : np.array([[1, 0, 0, 0], [1, 3, 0, 0], [1, 2, 1, 0], [1, 1, 3, 3]])
     }
-    from matrix_and_variable_operations import kronecker_expansion, expand_matrix_exponential, get_req_vars
-    from diagram_ternary import MT3DD, AEV3DD, MEV3DD
+    from utilities.matrix_and_variable_operations import kronecker_expansion, expand_matrix_exponential, get_req_vars
 
     for dim in [9]:
         np.random.seed(0)
@@ -516,7 +515,7 @@ def pseudo_reduction():
 
 
 def test_mevdds2():
-    from diagram_binary import AABDD
+    from diagram.binary import AABDD
     aadd = AABDD()
     mat1 = np.array([[4, 20, 4], [3, -1, 0], [2, 0, 1], [0, 5, 1], [1, 5, 1], [2, 10, 2], [3, 15, 3]], dtype=float)
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
@@ -542,13 +541,12 @@ basis_function = {
 
 def test_kronecker():
     print np.array([j for j in range(3**3)])[None]
-    from matrix_and_variable_operations import kronecker_expansion
+    from utilities.matrix_and_variable_operations import kronecker_expansion
     for i in range(4):
         print kronecker_expansion(basis_function['rmf3'], var=i)
 
 
 def divide_conquer_kron():
-    from matrix_and_variable_operations import kronecker_expansion
     a = np.ones(243*243)
     rand = np.random.random((243*243))
     # kron = kronecker_expansion(basis_function['rmf3'], var=10)
@@ -572,7 +570,7 @@ def divide_conquer_kron():
 
 
 def test_mevdds():
-    from diagram_ternary import MT3DD, AEV3DD, MEV3DD, AA3EVDD
+    from diagram.ternary import MT3DD, AEV3DD, MEV3DD, AA3EVDD
     # from diagram_binary import MT2DD, AEV2DD, MEV2DD, AABDD
     mtdd = MT3DD()
     aevdd = AEV3DD()
@@ -613,7 +611,7 @@ def test_mevdds():
 
 
 def test_variable_reordering():
-    from diagram_ternary import MT3DD, AEV3DD, MEV3DD, AAEV3DD
+    from diagram.ternary import MT3DD, AEV3DD, MEV3DD, AAEV3DD
     # from diagram_binary import MTDD, AEV2DD, MEV2DD, AAEV2DD
     mtdd = MT3DD()
     aevdd = AEV3DD()
@@ -653,7 +651,7 @@ def test_variable_reordering():
     print mat1.T
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
     # The transposes
-    from diagram_computations import transpose
+    from diagram.operations.computations import transpose
     transpose(diagram1, 7)
     print 'MTxDD - transposed'
     print 'Complexity: ' + str(diagram1.complexity())
@@ -683,9 +681,9 @@ def test_variable_reordering():
 
 
 def test_elementwise_operations():
-    from diagram_computations import multiply_elementwise, addition_elementwise, sum_over_all, dot_product
+    from diagram.operations.computations import multiply_elementwise, addition_elementwise, sum_over_all, dot_product
     # from diagram_ternary import MT3DD, AEV3DD, MEV3DD, AAEV3DD
-    from diagram_binary import MT2DD, AEV2DD, MEV2DD, AAEV2DD
+    from diagram.binary import MT2DD, AEV2DD, MEV2DD, AAEV2DD
     mtdd = MT2DD()
     # mtdd = MT3DD()
     aevdd = AEV2DD()
@@ -764,8 +762,8 @@ def test_elementwise_operations():
 
 
 def test_multiplications():
-    from diagram_computations import multiply_elementwise, addition_elementwise, sum_over_all, dot_product, multiply_matrix_by_column_vector, multiply
-    from diagram_ternary import MT3DD, AEV3DD, MEV3DD, AAEV3DD
+    from diagram.operations.computations import multiply_matrix_by_column_vector, multiply
+    from diagram.ternary import MT3DD, AEV3DD, MEV3DD, AAEV3DD
     # from diagram_binary import MT2DD, AEV2DD, MEV2DD, AAEV2DD
     # mtdd = MT2DD()
     mtdd = MT3DD()
@@ -866,7 +864,6 @@ def test_multiplications():
 
 
 def test_approx():
-    from diagram_computations import exchange_variable_order_with_children
     mat1 = np.array([[ 10,  11,  12,  13,  14,  15,  16,  17],
                      [ 30,  31,  32,  33,  34,  35,  36,  37],
                      [ 50,  51,  52,  53,  54,  55,  56,  57],
@@ -880,8 +877,6 @@ def test_approx():
     #
     # # mat1 = np.reshape(mat1, (1, np.prod(mat1.shape)))+ ((np.arange(0, 64, 1))/34) + (np.sin(np.arange(0, 64, 1).astype('float64')/32*np.pi))
     # mat1 = (np.sin(np.arange(0, 64, 1).astype('float64')/16*np.pi))
-    from diagram_binary import MT2DD, AEV2DD, MEV2DD, AAEV2DD
-    from diagram_ternary import MT3DD, AEV3DD, MEV3DD, AAEV3DD
     aevdd = AEV2DD()
     diagram1 = aevdd.create(mat1, 0)
     # The following will create the variable sequence 013425, which gives every 2nd row and every 2nd column
@@ -944,9 +939,9 @@ def test_operation_approx():
     Z = flux_qubit_potential(X, Y).T
 
     # the diagram creatinos
-    from diagram_computations import multiply_elementwise, addition_elementwise, sum_over_all, dot_product, multiply_matrix_by_column_vector, multiply
-    from diagram_ternary import MT3DD, AEV3DD, MEV3DD, AAEV3DD
-    # from diagram_binary import MT2DD, AEV2DD, MEV2DD, AAEV2DD
+    from diagram.operations.computations import multiply
+    from diagram.ternary import AEV3DD
+
     aevdd = AEV3DD()
     diagram3 = aevdd.create(Z, 0, True)
     diagram4 = aevdd.create(Z, 0, True)
@@ -978,9 +973,8 @@ def test_operation_approx2():
     #
     # # mat1 = np.reshape(mat1, (1, np.prod(mat1.shape)))+ ((np.arange(0, 64, 1))/34) + (np.sin(np.arange(0, 64, 1).astype('float64')/32*np.pi))
     # mat1 = (np.sin(np.arange(0, 64, 1).astype('float64')/16*np.pi))
-    from diagram_binary import MT2DD, AEV2DD, MEV2DD, AAEV2DD
-    from diagram_ternary import MT3DD, AEV3DD, MEV3DD, AAEV3DD
-    from diagram_computations import multiply, multiply_matrix_by_column_vector, reset_variable_order, scalar_multiply_diagram
+    from diagram.operations.computations import multiply_matrix_by_column_vector, reset_variable_order, scalar_multiply_diagram
+    from diagram.binary import AEV2DD
     aevdd = AEV2DD()
     diagram_mat = aevdd.create(mat1, 0)
     # using the power method as a first test
@@ -1000,13 +994,14 @@ def test_operation_approx2():
             result[2].append(ref_result)
         reset_variable_order(diagram_mat)
         reset_variable_order(diagram_vec)
-    print result[0]
-    print result[1]
-    print result[2]
+    print result[1][0].shape
+    print result[1][1].shape
+    print result[0][0].shape
+    print result[0][1].shape
     pl.figure()
     a = np.array(range(len(result[0][0])))
     b = np.array(range(len(result[1][1]))) * 2.0
-    for i in range(1, 15, 2):
+    for i in range(1, 15, 1):
         pl.plot(b, result[1][i])
         pl.plot(a, result[0][i])
         pl.plot(a, result[2][i])

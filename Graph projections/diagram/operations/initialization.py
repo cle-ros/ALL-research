@@ -3,9 +3,11 @@
 @author: Clemens Rosenbaum (cgbr@cs.umass.edu)
 """
 
-import numpy as np
 import re
-from matrix_and_variable_operations import get_req_vars, expand_matrix_exponential
+
+import numpy as np
+
+from utilities.matrix_and_variable_operations import get_req_vars, expand_matrix_exponential
 
 
 def get_conjunctions(leaves):

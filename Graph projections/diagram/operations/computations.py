@@ -4,9 +4,9 @@ Created on Fri Feb 14 13:11:22 2014
 
 @author: clemens
 """
-import copy
-from diagram_exceptions import UnmatchingDiagramsException
 import numpy as np
+
+from diagram.exceptions import UnmatchingDiagramsException
 
 
 def scalar_multiply_diagram(diagram, scalar):
@@ -184,7 +184,7 @@ def multiply_elementwise(diagram1, diagram2, offset_1=None, offset_2=None, appro
     :type offset_2: numpy.ndarray
     :type approximation_precision: int
     :type decimal_precision: int
-    :type in_place: bool
+    :type in_place: int
     :type matrix_multiplication: bool
     :rtype: node.Node
     """
@@ -216,12 +216,21 @@ def addition_elementwise(diagram1, diagram2, offset_1=None, offset_2=None, appro
 def fill_up_with_child_levels(floating_node):
     """
     This function creates child nodes until the depth indicated in the node is correct.
-    :param node:
+    :param floating_node:
     :return:
-    :type node: node.Node
+    :type floating_node: node.Node
     :rtype: node.Node
     """
     node = floating_node
+    if node.d != 1 and node.child_nodes.values()[0].is_leaf():
+        while node.d != 1:
+            tmp_children = node.child_nodes
+            tmp_offsets = node.offsets
+            new_child_node = node.create_node(depth=node.d-1)
+            new_child_node.child_nodes = tmp_children
+            new_child_node.offsets = tmp_offsets
+            node = new_child_node
+        return floating_node
     while not node.is_leaf():
         if node.d == 1:
             new_child_node = node.create_leaf(node.dtype.null_leaf_value)
@@ -232,7 +241,7 @@ def fill_up_with_child_levels(floating_node):
             if node.offsets != {}:
                 node.offsets[i] = node.dtype.null_edge_value
         node = new_child_node
-    return node
+    return floating_node
 
 
 def operation_elementwise(diagram1, diagram2, operation, offset_1, offset_2, approximation_precision=0,
@@ -258,7 +267,7 @@ def operation_elementwise(diagram1, diagram2, operation, offset_1, offset_2, app
     :type offset_2: numpy.ndarray
     :type approximation_precision: int
     :type decimal_precision: int
-    :type in_place: bool
+    :type in_place: int
     :type matrix_multiplication: bool
     :rtype: node.Node
     """
@@ -299,7 +308,7 @@ def operation_elementwise(diagram1, diagram2, operation, offset_1, offset_2, app
             raise UnmatchingDiagramsException
         elif node1.is_leaf() and node2.is_leaf():
             return rounding(operation(node1.value, node2.value))
-        elif node1.child_nodes.values()[0].is_leaf() or node2.d == approximation_precision + 1:
+        elif node1.d == 1 or node2.d == 2*approximation_precision:
             if in_place == 1:
                 node = node1
                 depth = node1.d
@@ -308,13 +317,16 @@ def operation_elementwise(diagram1, diagram2, operation, offset_1, offset_2, app
                 depth = node2.d
             else:
                 node.d = depth = 1
-            if approximation_precision == 0:
-                node, new_offset = dd.create_leaves(node, rounding(operation(node1.to_matrix(outer_offset=offset1),
-                                                                             node2.to_matrix(outer_offset=offset2)))[0])
+            if approximation_precision == 0 or matrix_multiplication:
+                node, new_offset = dd.create_leaves(node, rounding(operation(
+                    node1.to_matrix(outer_offset=offset1, approximation_precision=arg_1_precision),
+                    node2.to_matrix(outer_offset=offset2, approximation_precision=approximation_precision)))[0])
             else:
                 node, new_offset = dd.create_tuple(node, rounding(
-                    operation(node1.to_matrix(outer_offset=offset1, approximation_precision=arg_1_precision),
-                              node2.to_matrix(outer_offset=offset2, approximation_precision=approximation_precision)))[0])
+                    operation(node1.to_matrix(outer_offset=offset1,
+                                              approximation_precision=arg_1_precision),
+                              node2.to_matrix(outer_offset=offset2,
+                                              approximation_precision=approximation_precision)))[0])
                 fill_up_with_child_levels(node)
         else:
             offset = {}
@@ -336,9 +348,7 @@ def operation_elementwise(diagram1, diagram2, operation, offset_1, offset_2, app
             node.d = depth
         # because, in all likelihood, the following has to be calculated anyways, calculating it now will
         #  eliminate the need for another recursion through the diagram.
-        node.nodes
-        node.leaves
-        node.__hash__(reinit=True)
+        node.reinitialize()
         hashmap_of_results[hash_of_current_operation] = [node, new_offset, depth]
         # TODO: the following should work ...
         # node.__hash__()
@@ -389,11 +399,8 @@ def sum_over_all(diagram1, approximation_precision=0):
         if node1.is_leaf():
             return node1.value
         elif node1.d == approximation_precision:
-            try:
-                return node1.dtype.to_mat(next(iter(node1.leaves)), loffset=node1.dtype.null_edge_value,
-                                          goffset=offset1)
-            except StopIteration:
-                return node1.dtype.to_mat(node1, loffset=node1.dtype.null_edge_value, goffset=offset1, reorder=True)
+            return node1.dtype.to_mat(next(iter(node1.leaves)), loffset=node1.dtype.null_edge_value,
+                                      goffset=offset1)
         elif node1.child_nodes[node1.child_nodes.keys()[0]].is_leaf():
             tmp_result = np.sum(node1.to_matrix(outer_offset=offset1))
             hashmap_of_results[hash_of_current_operation] = tmp_result
@@ -435,7 +442,7 @@ def dot_product(diagram_vec_1, diagram_vec_2, offset_1=None, offset_2=None, appr
     :type offset_2: numpy.ndarray
     :type approximation_precision: int
     :type decimal_precision: int
-    :type in_place: bool
+    :type in_place: int
     :type matrix_multiplication: bool
     """
     if diagram_vec_1.d - approximation_precision != diagram_vec_2.d:
@@ -502,10 +509,10 @@ def multiply_matrix_by_column_vector(diagram_mat, diagram_vec, outer_offset_mat=
 
         # Are we selecting rows, or performing the dot product?
         if node_mat.d < node_vec.d:
-            from diagram_exceptions import UnmatchingDiagramsException
+            from diagram.exceptions import UnmatchingDiagramsException
             raise UnmatchingDiagramsException
-        elif node_mat.d - approximation_precision == node_vec.d + 1:
-            node.d = depth = 1
+        elif node_mat.d - 1 == node_vec.d + approximation_precision:
+            node.d = depth = 1 + approximation_precision
             leaf_values = []
             if diagram_mat.offsets == {}:
                 for i in range(dd.base):
@@ -518,6 +525,8 @@ def multiply_matrix_by_column_vector(diagram_mat, diagram_vec, outer_offset_mat=
                         node_mat.child_nodes[i], node_mat.offsets[i], offset_mat), offset_vec,
                         approximation_precision, decimal_precision, in_place, matrix_multiplication=True))
             node, new_offset = dd.create_leaves(node, np.array(leaf_values))
+            if approximation_precision != 0:
+                fill_up_with_child_levels(node)
         # selecting rows
         else:
             offset = {}
@@ -539,9 +548,7 @@ def multiply_matrix_by_column_vector(diagram_mat, diagram_vec, outer_offset_mat=
             node.d = depth
             # because, in all likelihood, the following has to be calculated anyways, calculating it now will
             #  eliminate the need for another recursion through the diagram.
-        node.nodes
-        node.leaves
-        node.__hash__()
+        node.reinitialize()
         hashmap_of_results[hash_of_current_operation] = [node, new_offset, depth]
         # TODO: the following should work ...
         # node.__hash__()
@@ -705,9 +712,7 @@ def multiply(diagram1, diagram2, height_second_argument, approximation_precision
         node.d = depth
         # because, in all likelihood, the following has to be calculated anyways, calculating it now will
         #  eliminate the need for another recursion through the diagram.
-        node.nodes
-        node.leaves
-        node.__hash__()
+        node.reinitialize()
         hashmap_of_results[hash_of_current_operation] = [node, new_offset, depth]
         # TODO: the following should work ...
         # node.__hash__()

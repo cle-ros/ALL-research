@@ -5,7 +5,7 @@ Created on Fri Feb 14 13:11:22 2014
 @author: clemens
 """
 
-from singleton import Singleton
+from utilities.singleton import Singleton
 
 
 class Diagram:
@@ -106,7 +106,8 @@ class Diagram:
         offset_matrix = np.array([])
         for ex_row in exchange_matrix:
             try:
-                comb_offsets = np.vstack((comb_offsets, dtype.to_mat(None, loffset=ex_row[4], goffset=ex_row[2], reorder=True)))
+                comb_offsets = np.vstack((comb_offsets, dtype.to_mat(None, loffset=ex_row[4], goffset=ex_row[2],
+                                                                     reorder=True)))
                 offset_matrix = np.vstack((offset_matrix, np.array([ex_row[2], ex_row[4]])))
             except ValueError:
                 comb_offsets = dtype.to_mat(None, loffset=ex_row[4], goffset=ex_row[2], reorder=True)
@@ -152,7 +153,7 @@ class Diagram:
         :type dec_digits: int
         :rtype: node.Node
         """
-        from matrix_and_variable_operations import expand_matrix_exponential, get_req_vars
+        from utilities.matrix_and_variable_operations import expand_matrix_exponential, get_req_vars
         # initializing the reduction
         hashtable = {}
         # get the required number of vars
@@ -192,9 +193,7 @@ class Diagram:
                 node.d = depth
             # because, in all likelihood, the following has to be calculated anyways, calculating it now will
             #  eliminate the need for another recursion through the diagram.
-            node.nodes
-            node.leaves
-            node.__hash__()
+            node.reinitialize()
             if to_reduce:
                 if not node.__hash__() in hashtable:
                     hashtable[node.__hash__()] = node
@@ -220,7 +219,7 @@ class MTxDD(Diagram):
     null_edge_value = None
 
     def __init__(self, basis):
-        from node import Node, Leaf
+        from diagram.node import Node, Leaf
         self.base = basis
         Diagram.__init__(self, Node, Leaf)
 
@@ -297,7 +296,7 @@ class AEVxDD(Diagram):
     null_leaf_value = 0.0
 
     def __init__(self, basis):
-        from node import Node, Leaf
+        from diagram.node import Node, Leaf
         self.base = basis
         Diagram.__init__(self, Node, Leaf)
 
@@ -311,7 +310,7 @@ class AEVxDD(Diagram):
         :type leaf_values: numpy.ndarray
         :rtype: node.Node
         """
-        from node import Leaf
+        from diagram.node import Leaf
         parent_node.child_nodes[0] = Leaf(0.0, 0, diagram_type=AEVxDD)
         average = leaf_values.mean()
         for i in range(self.base):
@@ -358,7 +357,7 @@ class AEVxDD(Diagram):
         """
         goffset = 0 if goffset is None else goffset
         import numpy as np
-        from node import Node, Leaf
+        from diagram.node import Node, Leaf
         if isinstance(node, Leaf):
             return np.array((node.value + loffset))[None]
         elif isinstance(node, Node) or reorder:
@@ -394,7 +393,7 @@ class MEVxDD(Diagram):
     null_leaf_value = 1.0
 
     def __init__(self, basis):
-        from node import Node, Leaf
+        from diagram.node import Node, Leaf
         self.base = basis
         Diagram.__init__(self, Node, Leaf)
 
@@ -408,7 +407,7 @@ class MEVxDD(Diagram):
         :type leaf_values: numpy.ndarray
         :rtype: node.Node
         """
-        from node import Leaf
+        from diagram.node import Leaf
         import numpy
         parent_node.child_nodes[0] = Leaf(1.0, 1, diagram_type=MEVxDD)
         try:
@@ -461,7 +460,7 @@ class MEVxDD(Diagram):
         """
         goffset = 1 if goffset is None else goffset
         import numpy as np
-        from node import Node, Leaf
+        from diagram.node import Node, Leaf
         if isinstance(node, Leaf):
             return np.array((node.value * loffset))[None]
         elif isinstance(node, Node) or reorder:
@@ -495,7 +494,7 @@ class AAxEVDD(Diagram):
     null_leaf_value = 0.0
 
     def __init__(self, basis):
-        from node import Node, Leaf
+        from diagram.node import Node, Leaf
         self.base = basis
         Diagram.__init__(self, Node, Leaf)
 
@@ -586,7 +585,7 @@ class AAxEVDD(Diagram):
         goffset = AAxEVDD.null_edge_value if goffset is None else goffset
         loffset = AAxEVDD.null_edge_value if loffset is None else loffset
         import numpy as np
-        from node import Node, Leaf
+        from diagram.node import Node, Leaf
         if isinstance(node, Leaf):
             return np.array((goffset[0] + goffset[1]*(loffset[0] + loffset[1]*node.value)))[None]
         elif isinstance(node, Node) or reorder:

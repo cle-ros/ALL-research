@@ -5,7 +5,7 @@ Created on Thu Feb 13 14:23:43 2014
 @author: clemens
 """
 
-from diagram_exceptions import NoSuchNodeException, TerminalNodeException
+from diagram.exceptions import TerminalNodeException
 
 
 class Node(object):
@@ -17,7 +17,7 @@ class Node(object):
     - a value, if it's a Leaf
     """
     properties = {}
-    from diagram import MTxDD
+    from diagram.diagram import MTxDD
 
     def __init__(self, denominator='', diagram_type=MTxDD, depth=None, nullvalue=0):
         """        
@@ -211,9 +211,9 @@ class Node(object):
 
     def sum(self):
         """
-        This method returns the matrix represented by the diagram
-        :param rows:
-        :param cropping:
+        This method returns the sum of all elements represented by the diagram
+        :returns : the sum
+        :rtype : numpy.float64
         """
         import numpy as np
 
@@ -238,7 +238,9 @@ class Node(object):
                 # or edge-value dd?
                 else:
                     for edge_name in node.child_nodes:
-                        tmp_result += sum_rec(node.child_nodes[edge_name], node.dtype.to_mat(node, node.offsets[edge_name], offset))
+                        tmp_result += sum_rec(node.child_nodes[edge_name], node.dtype.to_mat(node,
+                                                                                             node.offsets[edge_name],
+                                                                                             offset))
 
                 return tmp_result
 
@@ -405,14 +407,18 @@ class Node(object):
 
 
 class Hash:
+    def __init__(self):
+        pass
+
     @staticmethod
     def leaf_hash(leaf):
         return hash(leaf.value)
 
     @staticmethod
     def node_hash(node):
-        return hash(str([edge for edge in node.child_nodes]) + str(node.offsets) \
-                          + ''.join([repr(abs(node.child_nodes[i].__hash__())) for i in node.child_nodes]))
+        return hash(str([edge for edge in node.child_nodes]) + str(node.offsets) + ''.join([repr(abs(node.child_nodes[i]
+                                                                                                     .__hash__())) for i
+                                                                                            in node.child_nodes]))
 
 
 class Leaf(Node):
@@ -442,10 +448,9 @@ class Leaf(Node):
         """
         raise TerminalNodeException('Trying to add a child to a leaf node.')
 
-    def to_matrix(self, shape=(1, 1), resize=False):
+    def to_matrix(self, rows=1, cropping=True, outer_offset=None, approximation_precision=0):
         """
         Returns the value of the leaf in numpy-matrix form
         """
-        print('This is a leaf. The shape ('+str(shape)+') and resize ('+str(resize)+') parameters are ignored')
         import numpy as np
         return np.array(self.value)
