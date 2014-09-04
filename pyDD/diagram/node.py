@@ -5,7 +5,7 @@ Created on Thu Feb 13 14:23:43 2014
 @author: clemens
 """
 
-from diagram.exceptions import TerminalNodeException
+from pyDD.diagram.exceptions import TerminalNodeException
 
 
 class Node(object):
@@ -17,7 +17,7 @@ class Node(object):
     - a value, if it's a Leaf
     """
     properties = {}
-    from diagram.diagram import MTxDD
+    from pyDD.diagram.diagram import MTxDD
 
     def __init__(self, denominator='', diagram_type=MTxDD, depth=None, nullvalue=0):
         """        

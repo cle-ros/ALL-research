@@ -1,6 +1,6 @@
 __author__ = 'clemens'
 
-from diagram.diagram import MTxDD, AEVxDD, MEVxDD, AAxEVDD
+from pyDD.diagram.diagram import Diagram, MTxDD, AEVxDD, MEVxDD, AAxEVDD
 
 
 class MT2DD(MTxDD):

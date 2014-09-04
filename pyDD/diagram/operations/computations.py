@@ -6,7 +6,7 @@ Created on Fri Feb 14 13:11:22 2014
 """
 import numpy as np
 
-from diagram.exceptions import UnmatchingDiagramsException
+from pyDD.diagram.exceptions import UnmatchingDiagramsException
 
 
 def scalar_multiply_diagram(diagram, scalar):
@@ -509,7 +509,7 @@ def multiply_matrix_by_column_vector(diagram_mat, diagram_vec, outer_offset_mat=
 
         # Are we selecting rows, or performing the dot product?
         if node_mat.d < node_vec.d:
-            from diagram.exceptions import UnmatchingDiagramsException
+            from pyDD.diagram.exceptions import UnmatchingDiagramsException
             raise UnmatchingDiagramsException
         elif node_mat.d - 1 == node_vec.d + approximation_precision:
             node.d = depth = 1 + approximation_precision

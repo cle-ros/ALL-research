@@ -5,7 +5,7 @@ Created on Fri Feb 14 13:11:22 2014
 @author: clemens
 """
 
-from utilities.singleton import Singleton
+from pyDD.utilities.singleton import Singleton
 
 
 class Diagram:
@@ -18,7 +18,7 @@ class Diagram:
     def __init__(self, nt, lt):
         """
         The init method
-        :rtype : a copy of itself
+        :rtype : Diagram
         """
         self.node_type = nt
         self.leaf_type = lt
@@ -139,29 +139,35 @@ class Diagram:
         blocks = [values[i*block_len:(i+1)*block_len] for i in range(self.base)]
         return blocks
 
-    def create(self, matrix, null_value, to_reduce=True, dec_digits=-1):
+    def create(self, matrix, null_value, to_reduce=True, dec_digits=-1, kron_exp=None):
         """
         this function creates a diagram of the specified type of the given matrix
         :param matrix:      The data to be represented
         :param null_value:  The null value (for *-suppressed DDs)
         :param to_reduce:   Whether the tree shall be represented as a diagram
         :param dec_digits:  The number of decimal digits to round to
+        :param kron_exp:    The basis expansion matrix
         :return: the diagram
         :type matrix: numpy.ndarray
         :type null_value: float
         :type to_reduce: bool
         :type dec_digits: int
-        :rtype: node.Node
+        :type kron_exp: numpy.ndarray
+        :rtype: pyDD.diagram.node.Node
         """
-        from utilities.matrix_and_variable_operations import expand_matrix_exponential, get_req_vars
+        from pyDD.utilities.matrix_and_variable_operations import expand_matrix_exponential, get_req_vars
         # initializing the reduction
         hashtable = {}
         # get the required number of vars
         no_vars = get_req_vars(matrix, self.base)
-        # expand the matrix to be of size 2^nx2^m
-        matrix = expand_matrix_exponential(matrix, no_vars[1:], null_value, self.base)
-        # get the not-suppressed values
-        leaves = matrix.flatten()
+        if kron_exp is None:
+            # expand the matrix to be of size 2^nx2^m
+            matrix = expand_matrix_exponential(matrix, no_vars[1:], null_value, self.base)
+            # get the not-suppressed values
+            leaves = matrix.flatten()
+        else:
+            import pyDD.basis.kronecker as kron
+            leaves = kron.transform(matrix, kron_exp)
         # should the values be rounded to increase compression?
         if dec_digits != -1:
             import numpy
@@ -219,7 +225,7 @@ class MTxDD(Diagram):
     null_edge_value = None
 
     def __init__(self, basis):
-        from diagram.node import Node, Leaf
+        from pyDD.diagram.node import Node, Leaf
         self.base = basis
         Diagram.__init__(self, Node, Leaf)
 
@@ -296,7 +302,7 @@ class AEVxDD(Diagram):
     null_leaf_value = 0.0
 
     def __init__(self, basis):
-        from diagram.node import Node, Leaf
+        from pyDD.diagram.node import Node, Leaf
         self.base = basis
         Diagram.__init__(self, Node, Leaf)
 
@@ -310,7 +316,7 @@ class AEVxDD(Diagram):
         :type leaf_values: numpy.ndarray
         :rtype: node.Node
         """
-        from diagram.node import Leaf
+        from pyDD.diagram.node import Leaf
         parent_node.child_nodes[0] = Leaf(0.0, 0, diagram_type=AEVxDD)
         average = leaf_values.mean()
         for i in range(self.base):
@@ -357,7 +363,7 @@ class AEVxDD(Diagram):
         """
         goffset = 0 if goffset is None else goffset
         import numpy as np
-        from diagram.node import Node, Leaf
+        from pyDD.diagram.node import Node, Leaf
         if isinstance(node, Leaf):
             return np.array((node.value + loffset))[None]
         elif isinstance(node, Node) or reorder:
@@ -393,7 +399,7 @@ class MEVxDD(Diagram):
     null_leaf_value = 1.0
 
     def __init__(self, basis):
-        from diagram.node import Node, Leaf
+        from pyDD.diagram.node import Node, Leaf
         self.base = basis
         Diagram.__init__(self, Node, Leaf)
 
@@ -407,7 +413,7 @@ class MEVxDD(Diagram):
         :type leaf_values: numpy.ndarray
         :rtype: node.Node
         """
-        from diagram.node import Leaf
+        from pyDD.diagram.node import Leaf
         import numpy
         parent_node.child_nodes[0] = Leaf(1.0, 1, diagram_type=MEVxDD)
         try:
@@ -460,7 +466,7 @@ class MEVxDD(Diagram):
         """
         goffset = 1 if goffset is None else goffset
         import numpy as np
-        from diagram.node import Node, Leaf
+        from pyDD.diagram.node import Node, Leaf
         if isinstance(node, Leaf):
             return np.array((node.value * loffset))[None]
         elif isinstance(node, Node) or reorder:
@@ -494,7 +500,7 @@ class AAxEVDD(Diagram):
     null_leaf_value = 0.0
 
     def __init__(self, basis):
-        from diagram.node import Node, Leaf
+        from pyDD.diagram.node import Node, Leaf
         self.base = basis
         Diagram.__init__(self, Node, Leaf)
 
@@ -585,7 +591,7 @@ class AAxEVDD(Diagram):
         goffset = AAxEVDD.null_edge_value if goffset is None else goffset
         loffset = AAxEVDD.null_edge_value if loffset is None else loffset
         import numpy as np
-        from diagram.node import Node, Leaf
+        from pyDD.diagram.node import Node, Leaf
         if isinstance(node, Leaf):
             return np.array((goffset[0] + goffset[1]*(loffset[0] + loffset[1]*node.value)))[None]
         elif isinstance(node, Node) or reorder:

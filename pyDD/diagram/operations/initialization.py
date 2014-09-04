@@ -7,7 +7,7 @@ import re
 
 import numpy as np
 
-from utilities.matrix_and_variable_operations import get_req_vars, expand_matrix_exponential
+from pyDD.utilities.matrix_and_variable_operations import get_req_vars, expand_matrix_exponential
 
 
 def get_conjunctions(leaves):
@@ -178,7 +178,6 @@ def initialize_diagram(node, matrix, null_value, var_string='x'):
     # adding the nodes, named x0,x1,...xn, where n is the number of required vars
     indices, leaves = get_non_null_components(matrix, null_value, no_vars)
 
-    var_names = get_var_names(no_vars[0], var_string)
-    sorted_indices, sorted_variable_names, sorted_order = sort_variables(indices, var_names)
+    sorted_indices, sorted_variable_names, sorted_order = sort_variables(indices, None)
     compute_diagram(node, sorted_indices, leaves, sorted_variable_names, no_vars)
     return no_vars[1:], node
