@@ -19,11 +19,11 @@ def store_results(result, approach, params, folder='./'):
     """
     import csv
     from time import gmtime, strftime
-    import numpy
-    if type(result) is numpy.ndarray:
-        to_be_stored = result.tolist()
-    else:
-        to_be_stored = result
+    # import numpy
+    # if type(result) is numpy.ndarray:
+    #     to_be_stored = result.tolist()
+    # else:
+    #     to_be_stored = result
     # generating a time-string
     time_string = strftime('%m-%d_%H-%M-%S', gmtime())
     # generating the filename
@@ -32,8 +32,11 @@ def store_results(result, approach, params, folder='./'):
     o_file = open(file_name, 'w')
     writer = csv.writer(o_file)
     try:
-        writer.writerow(to_be_stored.tolist())
+        writer.writerows(result.tolist())
+        # writer.writerow(to_be_stored.tolist())
     except AttributeError:
-        writer.writerow(to_be_stored)
+        writer.writerows(result)
+        # writer.writerow(to_be_stored)
     # and closing it
     o_file.close()
+    print('Result successfully stored in ' + file_name)

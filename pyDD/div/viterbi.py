@@ -25,35 +25,9 @@ def viterbi(obs, states, start_p, trans_p, emit_p):
     n = 0           # if only one element is observed max is sought in the initialization values
     if len(obs) != 1:
         n = t
-    # print_dptable(v)
-    (prob, state) = max((v[n][y], y) for y in states)
-    from pyDD.diagram import ternary as tern
-    from pyDD.diagram import binary as dd_bin
-    from pyDD.basis import matrices as exp_bases
-    import numpy as np
-    diagram_ev = dd_bin.AAEV2DD()
-    # diagram_ev = tern.AAEV3DD()
-    # diagram_mt = tern.MT3DD()
-    v_array = []
-    for element in v:
-        tmp = []
-        tmp += element.values()
-        v_array.append(tmp)
-    v_array = np.array(v_array)
-    dd_ev_ident = diagram_ev.create(v_array, 0)
-    # dd_mt_ident = diagram_mt.create(v_array, 0)
-    # dd_ev_rmf3  = diagram_ev.create(v_array, 0, kron_exp=exp_bases.rmf3)
-    # dd_mt_rmf3  = diagram_mt.create(v_array, 0, kron_exp=exp_bases.rmf3)
-    # dd_ev_gf3   = diagram_ev.create(v_array, 0, kron_exp=exp_bases.gf3)
-    # dd_mt_gf3   = diagram_mt.create(v_array, 0, kron_exp=exp_bases.gf3)
-    # print 'Complexity matrix:       ' + str(np.prod(v_array.shape))
-    # print 'Complexity dd mt ident:  ' + str(dd_mt_ident.complexity())
-    # print 'Complexity dd ev ident:  ' + str(dd_ev_ident.complexity())
-    # print 'Complexity dd mt rmf3:   ' + str(dd_mt_rmf3.complexity())
-    # print 'Complexity dd ev rmf3:   ' + str(dd_ev_rmf3.complexity())
 
     # return np.prod(v_array.shape), dd_mt_ident.complexity(), dd_ev_ident.complexity(), dd_mt_rmf3.complexity(), dd_ev_rmf3.complexity(), dd_ev_gf3.complexity(), dd_ev_gf3.complexity()
-    return np.prod(v_array.shape), dd_ev_ident.complexity()
+    return v
 
 
 # Don't study this, it just prints a table of the steps.
